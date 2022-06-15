@@ -104,8 +104,6 @@ function printTable(dbquery, fields, flattenArray) {
     printTable(this, fields, flattenArray);
 };
 
-if (globalThis.DBCommandCursor)
-    (DBCommandCursor.prototype || DBCommandCursor).table = (DBQuery.prototype || DBQuery).table;
 
 var userName = "USER_NAME_PLACEHOLDER";
 var password = "PASSWORD_PLACEHOLDER";

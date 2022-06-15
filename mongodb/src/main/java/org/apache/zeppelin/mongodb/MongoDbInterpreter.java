@@ -195,6 +195,14 @@ public class MongoDbInterpreter extends Interpreter {
    * use placeholders to replace properties
    */
   private void prepareShellExtension(){
+    try (final Scanner scanner = new Scanner(MongoDbInterpreter.class.getResourceAsStream("/shell_extension.js"),
+            "UTF-8").useDelimiter("\\A")) {
+      shellExtension = scanner.next();
+    }catch (Exception e){
+      LOGGER.error(e.getLocalizedMessage());
+      LOGGER.error(e.toString());
+    }
+    LOGGER.error("current shell extension is " + shellExtension);
     shellExtension = shellExtension.replace("TABLE_LIMIT_PLACEHOLDER", getProperty("mongo.shell.command.table.limit"))
             .replace("TARGET_DB_PLACEHOLDER", getProperty("mongo.server.database"))
             .replace("USER_NAME_PLACEHOLDER", getProperty("mongo.server.username"))

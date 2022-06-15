@@ -67,7 +67,7 @@ import com.google.common.annotations.VisibleForTesting;
  * Paragraph is a representation of an execution unit.
  */
 public class Paragraph extends JobWithProgressPoller<InterpreterResult> implements Cloneable,
-    JsonSerializable {
+        JsonSerializable {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(Paragraph.class);
 
@@ -355,7 +355,7 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
       if (isEnabled()) {
         setAuthenticationInfo(getAuthenticationInfo());
         interpreter.getScheduler().submit(this);
-       } else {
+      } else {
         LOGGER.info("Skip disabled paragraph. {}", getId());
         setStatus(Job.Status.FINISHED);
         return true;
@@ -376,8 +376,8 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
       }
     } catch (InterpreterNotFoundException e) {
       InterpreterResult intpResult =
-          new InterpreterResult(InterpreterResult.Code.ERROR,
-                  String.format("Interpreter %s not found", this.intpText));
+              new InterpreterResult(InterpreterResult.Code.ERROR,
+                      String.format("Interpreter %s not found", this.intpText));
       setReturn(intpResult, e);
       setStatus(Job.Status.ERROR);
       return false;
@@ -411,8 +411,8 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
         LOGGER.error("Can not find interpreter name " + intpText);
         throw new RuntimeException("Can not find interpreter for " + intpText);
       }
-      LOGGER.info("Run paragraph [paragraph_id: {}, interpreter: {}, note_id: {}, user: {}]",
-              getId(), this.interpreter.getClassName(), note.getId(), subject.getUser());
+      LOGGER.info("Run paragraph [title: {}, paragraph_id: {}, interpreter: {}, note_id: {}, user: {}]\n\n{}\n\n",
+              getTitle(), getId(), this.interpreter.getClassName(), note.getId(), subject.getUser(), getText());
       InterpreterSetting interpreterSetting = ((ManagedInterpreterGroup)
               interpreter.getInterpreterGroup()).getInterpreterSetting();
       if (interpreterSetting.getStatus() != InterpreterSetting.Status.READY) {
@@ -645,7 +645,7 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
   }
 
   String extractVariablesFromAngularRegistry(String scriptBody, Map<String, Input> inputs,
-      AngularObjectRegistry angularRegistry) {
+                                             AngularObjectRegistry angularRegistry) {
 
     final String noteId = this.getNote().getId();
     final String paragraphId = this.getId();
@@ -677,7 +677,7 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
   }
 
   public void updateRuntimeInfos(String label, String tooltip, Map<String, String> infos,
-      String group, String intpSettingId) {
+                                 String group, String intpSettingId) {
     if (this.runtimeInfos == null) {
       this.runtimeInfos = new HashMap<>();
     }
@@ -765,7 +765,7 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
       return false;
     }
     if (dateUpdated != null ?
-        !dateUpdated.equals(paragraph.dateUpdated) : paragraph.dateUpdated != null) {
+            !dateUpdated.equals(paragraph.dateUpdated) : paragraph.dateUpdated != null) {
       return false;
     }
     if (config != null ? !config.equals(paragraph.config) : paragraph.config != null) {
@@ -776,7 +776,7 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
     }
 
     return results != null ?
-        results.equals(paragraph.results) : paragraph.results == null;
+            results.equals(paragraph.results) : paragraph.results == null;
 
   }
 

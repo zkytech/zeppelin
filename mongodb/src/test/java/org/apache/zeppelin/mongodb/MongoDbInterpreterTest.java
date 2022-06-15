@@ -135,6 +135,11 @@ public class MongoDbInterpreterTest implements InterpreterOutputListener {
     assertSame(Code.ERROR, res.code());
   }
 
+  @Test
+  public void testSE(){
+    System.out.println(SHELL_EXTENSION);
+  }
+
   @Override
   public void onUpdateAll(InterpreterOutput interpreterOutput) {
 
@@ -149,6 +154,7 @@ public class MongoDbInterpreterTest implements InterpreterOutputListener {
   @Override
   public void onUpdate(int i, InterpreterResultMessageOutput interpreterResultMessageOutput) {
   }
+
 
   private byte[] getBufferBytes() {
     buffer.flip();
