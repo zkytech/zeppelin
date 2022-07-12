@@ -17,29 +17,34 @@
 
 package org.apache.zeppelin.spark;
 
+import com.alibaba.fastjson.JSON;
+import com.google.gson.stream.JsonReader;
+import javaslang.Tuple;
+import javaslang.Tuple3;
+import org.apache.spark.sql.SparkSession;
+import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.display.ui.CheckBox;
 import org.apache.zeppelin.display.ui.Password;
 import org.apache.zeppelin.display.ui.Select;
 import org.apache.zeppelin.display.ui.TextBox;
-import org.apache.zeppelin.interpreter.InterpreterContext;
-import org.apache.zeppelin.interpreter.InterpreterException;
-import org.apache.zeppelin.interpreter.InterpreterGroup;
-import org.apache.zeppelin.interpreter.InterpreterOutput;
-import org.apache.zeppelin.interpreter.InterpreterOutputListener;
-import org.apache.zeppelin.interpreter.InterpreterResult;
-import org.apache.zeppelin.interpreter.InterpreterResultMessageOutput;
+import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.remote.RemoteInterpreterEventClient;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
+import org.apache.zeppelin.util.FileUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -61,11 +66,39 @@ public class SparkInterpreterTest {
 
   private RemoteInterpreterEventClient mockRemoteEventClient;
 
-  @Before
-  public void setUp() {
-    mockRemoteEventClient = mock(RemoteInterpreterEventClient.class);
-  }
+//  @Before
+//  public void setUp() {
+//    mockRemoteEventClient = mock(RemoteInterpreterEventClient.class);
+//  }
 
+  @Test
+  public void testTmp() throws InterpreterException, IOException {
+
+    ZeppelinConfiguration zConf = ZeppelinConfiguration.create();
+//    InterpreterSettingManager interpreterSettingManager =
+//            new InterpreterSettingManager(zConf, null, null, null);
+//    interpreterSettingManager.get().forEach(f -> {
+//      Properties properties1 = f.getJavaProperties();
+//      System.out.println(properties1.stringPropertyNames());
+//    });
+//    System.out.println(zConf.getInterpreterJson());
+    File interpreterSettingPath = new File(zConf.getInterpreterSettingPath(true));
+    String json = FileUtils.readFromFile(interpreterSettingPath);
+    System.out.println(JSON.parseObject(json).getJSONObject("interpreterSettings"));
+//    System.out.println(json);
+    Pattern pattern = Pattern.compile("%([-_0-9a-zA-Z]*)%\\.([-_0-9a-zA-Z]*)\\.([-_0-9a-zA-Z]*)");
+    Matcher matcher = pattern.matcher("%mysql-yjdp%.yjdp.mediainfo left join %mysql-dpyy%.dpyy.test");
+    HashMap<String, Tuple> imap = new HashMap();
+    while(matcher.find()){
+      System.out.println(matcher.group());
+      if(imap.containsKey(matcher.group())){
+        continue;
+      }
+      imap.put(matcher.group(),Tuple.of(matcher.group(1),matcher.group(2),matcher.group(3)));
+    }
+    System.out.println(imap);
+
+  }
   @Test
   public void testSparkInterpreter() throws IOException, InterruptedException, InterpreterException {
     Properties properties = new Properties();

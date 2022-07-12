@@ -17,9 +17,15 @@
 
 package org.apache.zeppelin.spark;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import javaslang.Tuple;
+import javaslang.Tuple3;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.AnalysisException;
+import org.apache.spark.sql.SparkSession;
+import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.interpreter.AbstractInterpreter;
 import org.apache.zeppelin.interpreter.ZeppelinContext;
 import org.apache.zeppelin.interpreter.InterpreterContext;
@@ -32,11 +38,16 @@ import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.zeppelin.util.FileUtils;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Spark SQL interpreter for Zeppelin.
@@ -85,7 +96,19 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
     sparkInterpreter.getZeppelinContext().setInterpreterContext(context);
     Object sqlContext = sparkInterpreter.getSQLContext();
     SparkContext sc = sparkInterpreter.getSparkContext();
+    try {
+      st = injectOtherDb(st);
+    } catch (IOException e) {
+      try{
+        context.out.write(e.getCause().getMessage());
+        context.out.flush();
+        return new InterpreterResult(Code.ERROR);
+      }catch(IOException ex) {
+        LOGGER.error("Fail to write output", ex);
+        return new InterpreterResult(Code.ERROR);
+      }
 
+    }
     List<String> sqls = sqlSplitter.splitSql(st);
     int maxResult = Integer.parseInt(context.getLocalProperties().getOrDefault("limit",
             "" + sparkInterpreter.getZeppelinContext().getMaxResult()));
@@ -94,9 +117,14 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
     sc.setJobGroup(Utils.buildJobGroupId(context), Utils.buildJobDesc(context), false);
     String curSql = null;
     ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
+
+
     try {
+
+
       if (!sparkInterpreter.isScala212()) {
         // TODO(zjffdu) scala 2.12 still doesn't work for codegen (ZEPPELIN-4627)
+
       Thread.currentThread().setContextClassLoader(sparkInterpreter.getScalaShellClassLoader());
       }
       Method method = sqlContext.getClass().getMethod("sql", String.class);
@@ -148,6 +176,72 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
     }
 
     return new InterpreterResult(Code.SUCCESS);
+  }
+
+
+  /**
+   * inject mysql/mongodb table to spark sql session
+   * the table that need to inject should be declared like : %interpreterName%.dbName.tableName
+   * table will be fully load into spark session without any filter
+   * @param st
+   * @return
+   * @throws IOException
+   */
+  public String injectOtherDb(String st) throws IOException {
+    LOGGER.info("开始处理spark sql:"+st);
+    ZeppelinConfiguration zConf = ZeppelinConfiguration.create();
+    File interpreterSettingPath = new File(zConf.getInterpreterSettingPath(true));
+    // load interpreter settings
+    String json = FileUtils.readFromFile(interpreterSettingPath);
+    JSONObject interpreterSettings =  JSON.parseObject(json).getJSONObject("interpreterSettings");
+    // get spark session
+    LOGGER.info("开始获取spark session");
+    SparkSession session = (SparkSession) sparkInterpreter.getSparkSession();
+    LOGGER.info("获取到spark session");
+    // try to get interpreter name and db_name and table_name
+    Pattern pattern = Pattern.compile("([-_0-9a-zA-Z]*)\\.([-_0-9a-zA-Z]*)\\.([-_0-9a-zA-Z]*)");
+    Matcher matcher = pattern.matcher(st);
+    HashMap<String, Tuple3<String,String,String>> imap = new HashMap<>();
+    while(matcher.find() && !imap.containsKey(matcher.group())){
+
+      // the value of map is interpreter_id, db_name, table_name
+      imap.put(matcher.group(), new Tuple3<>(matcher.group(1),matcher.group(2),matcher.group(3)));
+    }
+    for(Tuple3<String,String,String> info:imap.values()){
+      String interpreterId = info._1;
+      String dbName = info._2;
+      String tableName = info._3;
+      // interpreter group
+      String iGroup = interpreterSettings.getJSONObject(interpreterId).getString("group");
+      // if interpreter group is jdbc, then try to match Driver
+      if(iGroup.equals("jdbc")){
+        String jdbcUrl = interpreterSettings.getJSONObject(interpreterId).getJSONObject("properties").getJSONObject("default.url").getString("value");
+        // mysql
+        if(jdbcUrl.startsWith("jdbc:mysql://")){
+          String user = interpreterSettings.getJSONObject(interpreterId).getJSONObject("properties").getJSONObject("default.user").getString("value");
+          String password = interpreterSettings.getJSONObject(interpreterId).getJSONObject("properties").getJSONObject("default.password").getString("value");
+
+          Properties properties = new Properties();
+          properties.setProperty("user", user);
+          properties.setProperty("password", password);
+          properties.setProperty("driver","com.mysql.cj.jdbc.Driver");
+          String new_table_name = String.format("%s_%s_%s", interpreterId,dbName,tableName);
+          session.read().jdbc(
+                  jdbcUrl,
+                  String.format("select * from %s.%s ", dbName,tableName),
+                  properties)
+                  .registerTempTable(new_table_name);
+          st = st.replaceAll(interpreterId+"\\."+dbName+"\\."+tableName,new_table_name);
+        }
+        else{
+          throw new IOException(String.format("Unsupported interpreter: %s", interpreterId));
+        }
+      }
+
+    }
+    return st;
+
+
   }
 
   @Override

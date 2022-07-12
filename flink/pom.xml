@@ -35,7 +35,7 @@
     <modules>
         <module>flink-scala-parent</module>
         <module>flink-scala-2.11</module>
-        <module>flink-scala-2.12</module>
+<!--        <module>flink-scala-2.12</module>-->
         <module>flink-shims</module>
         <module>flink1.10-shims</module>
         <module>flink1.11-shims</module>

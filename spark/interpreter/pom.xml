@@ -150,7 +150,11 @@
         </exclusion>
       </exclusions>
     </dependency>
-
+    <dependency>
+      <groupId>com.alibaba</groupId>
+      <artifactId>fastjson</artifactId>
+      <version>2.0.7</version>
+    </dependency>
     <dependency>
       <groupId>org.apache.zeppelin</groupId>
       <artifactId>zeppelin-jupyter-interpreter</artifactId>
@@ -168,7 +172,12 @@
         </exclusion>
       </exclusions>
     </dependency>
-
+    <dependency>
+      <groupId>mysql</groupId>
+      <artifactId>mysql-connector-java</artifactId>
+      <version>8.0.29</version>
+      <!--            <scope>compile</scope>-->
+    </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>r</artifactId>
@@ -320,6 +329,18 @@
       <artifactId>unirest-java</artifactId>
       <version>1.4.9</version>
       <scope>test</scope>
+    </dependency>
+      <dependency>
+          <groupId>org.apache.zeppelin</groupId>
+          <artifactId>zeppelin-zengine</artifactId>
+          <version>0.10.1</version>
+          <scope>test</scope>
+      </dependency>
+    <dependency>
+      <groupId>org.apache.zeppelin</groupId>
+      <artifactId>zeppelin-zengine</artifactId>
+      <version>0.10.1</version>
+      <scope>compile</scope>
     </dependency>
 
   </dependencies>

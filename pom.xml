@@ -60,47 +60,46 @@
     <module>rlang</module>
 <!--    <module>zeppelin-jupyter-interpreter</module>-->
 <!--    <module>zeppelin-jupyter-interpreter-shaded</module>-->
-<!--    <module>kotlin</module>-->
-<!--    <module>groovy</module>-->
-<!--    <module>spark</module>-->
-<!--    <module>spark-submit</module>-->
-<!--    <module>submarine</module>-->
-<!--    <module>markdown</module>-->
+    <module>kotlin</module>
+    <module>groovy</module>
+    <module>spark</module>
+    <module>spark-submit</module>
+    <module>submarine</module>
+    <module>markdown</module>
     <module>mongodb</module>
-<!--    <module>angular</module>-->
-<!--    <module>shell</module>-->
-<!--    <module>livy</module>-->
-<!--    <module>hbase</module>-->
-<!--    <module>pig</module>-->
-<!--    <module>jdbc</module>-->
-<!--    <module>file</module>-->
-<!--    <module>flink</module>-->
-<!--    <module>flink-cmd</module>-->
-<!--    <module>ignite</module>-->
-<!--    <module>influxdb</module>-->
-<!--    <module>kylin</module>-->
-<!--    <module>python</module>-->
-<!--    <module>lens</module>-->
-<!--    <module>cassandra</module>-->
-<!--    <module>elasticsearch</module>-->
-<!--    <module>bigquery</module>-->
-<!--    <module>alluxio</module>-->
-<!--    <module>scio</module>-->
-<!--    <module>neo4j</module>-->
-<!--    <module>sap</module>-->
-<!--    <module>scalding</module>-->
-<!--    <module>java</module>-->
-<!--    <module>beam</module>-->
-<!--    <module>hazelcastjet</module>-->
-<!--    <module>geode</module>-->
-<!--    <module>ksql</module>-->
+    <module>angular</module>
+    <module>shell</module>
+    <module>livy</module>
+    <module>hbase</module>
+    <module>pig</module>
+    <module>jdbc</module>
+    <module>file</module>
+    <module>flink</module>
+    <module>flink-cmd</module>
+    <module>ignite</module>
+    <module>influxdb</module>
+    <module>kylin</module>
+    <module>python</module>
+    <module>lens</module>
+    <module>cassandra</module>
+    <module>elasticsearch</module>
+    <module>bigquery</module>
+    <module>alluxio</module>
+    <module>scio</module>
+    <module>neo4j</module>
+    <module>sap</module>
+    <module>scalding</module>
+    <module>java</module>
+    <module>beam</module>
+    <module>geode</module>
+    <module>ksql</module>
     <module>sparql</module>
     <module>zeppelin-common</module>
     <module>zeppelin-client</module>
     <module>zeppelin-client-examples</module>
 <!--    <module>zeppelin-web</module>-->
     <module>zeppelin-server</module>
-    <module>zeppelin-jupyter</module>
+<!--    <module>zeppelin-jupyter</module>-->
     <module>zeppelin-plugins</module>
     <module>zeppelin-distribution</module>
   </modules>
@@ -116,8 +115,8 @@
     <scalacheck.version>1.12.5</scalacheck.version>
 
     <!-- frontend maven plugin related versions-->
-    <node.version>v12.3.1</node.version>
-    <npm.version>6.9.0</npm.version>
+    <node.version>v16.16.0</node.version>
+    <npm.version>8.11.0</npm.version>
     <plugin.frontend.version>1.6</plugin.frontend.version>
 
     <!-- common library versions -->

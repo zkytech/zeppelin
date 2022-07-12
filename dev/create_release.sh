@@ -95,12 +95,13 @@ function make_binary_release() {
   rm -rf "${WORKING_DIR}/zeppelin-${RELEASE_VERSION}-bin-${BIN_RELEASE_NAME}"
 }
 
-git_clone
+#git_clone
+cp -r ./* ${WORKING_DIR}/
 make_source_package
 make_binary_release netinst "-Pweb-angular -Phadoop-2.6 -pl !beam,!hbase,!pig,!jdbc,!file,!flink,!ignite,!kylin,!lens,!cassandra,!elasticsearch,!bigquery,!alluxio,!scio,!livy,!groovy,!sap,!java,!geode,!neo4j,!hazelcastjet,!submarine,!sparql,!mongodb,!ksql,!scalding -am"
 make_binary_release all "-Pweb-angular -Phadoop-2.6"
 
 # remove non release files and dirs
-rm -rf "${WORKING_DIR}/zeppelin"
-rm -rf "${WORKING_DIR}/zeppelin-${RELEASE_VERSION}"
+#rm -rf "${WORKING_DIR}/zeppelin"
+#rm -rf "${WORKING_DIR}/zeppelin-${RELEASE_VERSION}"
 echo "Release files are created under ${WORKING_DIR}"

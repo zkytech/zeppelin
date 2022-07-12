@@ -43,6 +43,7 @@
         <protobuf.version>2.5.0</protobuf.version>
         <py4j.version>0.10.9</py4j.version>
         <spark.scala.version>2.12.7</spark.scala.version>
+        <scala.compile.version>2.11.12</scala.compile.version>
         <spark.scala.binary.version>2.12</spark.scala.binary.version>
 
         <spark.archive>spark-${spark.version}</spark.archive>
