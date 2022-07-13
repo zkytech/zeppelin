@@ -188,16 +188,18 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
    * @throws IOException
    */
   public String injectOtherDb(String st) throws IOException {
-    LOGGER.info("开始处理spark sql:"+st);
+    LOGGER.info("##### 开始处理spark sql:"+st);
     ZeppelinConfiguration zConf = ZeppelinConfiguration.create();
     File interpreterSettingPath = new File(zConf.getInterpreterSettingPath(true));
     // load interpreter settings
+    LOGGER.info(String.format("##### 从%s读取解释器配置", interpreterSettingPath));
     String json = FileUtils.readFromFile(interpreterSettingPath);
+    LOGGER.info(json);
     JSONObject interpreterSettings =  JSON.parseObject(json).getJSONObject("interpreterSettings");
     // get spark session
-    LOGGER.info("开始获取spark session");
+    LOGGER.info("##### 开始获取spark session");
     SparkSession session = (SparkSession) sparkInterpreter.getSparkSession();
-    LOGGER.info("获取到spark session");
+    LOGGER.info("##### 获取到spark session");
     // try to get interpreter name and db_name and table_name
     Pattern pattern = Pattern.compile("([-_0-9a-zA-Z]*)\\.([-_0-9a-zA-Z]*)\\.([-_0-9a-zA-Z]*)");
     Matcher matcher = pattern.matcher(st);
@@ -211,6 +213,7 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
       String interpreterId = info._1;
       String dbName = info._2;
       String tableName = info._3;
+      LOGGER.info(String.format("##### 尝试获取解释器配置:%s", interpreterId));
       // interpreter group
       String iGroup = interpreterSettings.getJSONObject(interpreterId).getString("group");
       // if interpreter group is jdbc, then try to match Driver
@@ -220,18 +223,20 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
         if(jdbcUrl.startsWith("jdbc:mysql://")){
           String user = interpreterSettings.getJSONObject(interpreterId).getJSONObject("properties").getJSONObject("default.user").getString("value");
           String password = interpreterSettings.getJSONObject(interpreterId).getJSONObject("properties").getJSONObject("default.password").getString("value");
-
+          LOGGER.info("##### 开始注入虚拟表");
           Properties properties = new Properties();
           properties.setProperty("user", user);
           properties.setProperty("password", password);
           properties.setProperty("driver","com.mysql.cj.jdbc.Driver");
-          String new_table_name = String.format("%s_%s_%s", interpreterId,dbName,tableName);
+          String newTableName = String.format("%s_%s_%s", interpreterId,dbName,tableName);
+          String sqlStr = String.format("(select * from %s.%s) as t", dbName,tableName);
           session.read().jdbc(
                   jdbcUrl,
-                  String.format("select * from %s.%s ", dbName,tableName),
+                  sqlStr,
                   properties)
-                  .registerTempTable(new_table_name);
-          st = st.replaceAll(interpreterId+"\\."+dbName+"\\."+tableName,new_table_name);
+                  .registerTempTable(newTableName);
+          st = st.replaceAll(interpreterId+"\\."+dbName+"\\."+tableName,newTableName);
+          LOGGER.info("##### 完成注入");
         }
         else{
           throw new IOException(String.format("Unsupported interpreter: %s", interpreterId));
