@@ -49,6 +49,11 @@
   <dependencies>
     <dependency>
       <groupId>org.apache.zeppelin</groupId>
+      <artifactId>zeppelin-interpreter</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.zeppelin</groupId>
       <artifactId>zeppelin-display</artifactId>
       <version>${project.version}</version>
       <exclusions>
@@ -173,12 +178,6 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>mysql</groupId>
-      <artifactId>mysql-connector-java</artifactId>
-      <version>8.0.29</version>
-      <!--            <scope>compile</scope>-->
-    </dependency>
-    <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>r</artifactId>
       <version>${project.version}</version>
@@ -189,7 +188,21 @@
         </exclusion>
       </exclusions>
     </dependency>
-
+    <dependency>
+      <groupId>org.mongodb.spark</groupId>
+      <artifactId>mongo-spark-connector_2.12</artifactId>
+      <version>3.0.2</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.spark</groupId>
+          <artifactId>spark-sql_${spark.scala.binary.version}</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.spark</groupId>
+          <artifactId>spark-catalyst_${spark.scala.binary.version}</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-repl_${spark.scala.binary.version}</artifactId>

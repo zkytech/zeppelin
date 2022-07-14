@@ -75,28 +75,10 @@ public class SparkInterpreterTest {
   public void testTmp() throws InterpreterException, IOException {
 
     ZeppelinConfiguration zConf = ZeppelinConfiguration.create();
-//    InterpreterSettingManager interpreterSettingManager =
-//            new InterpreterSettingManager(zConf, null, null, null);
-//    interpreterSettingManager.get().forEach(f -> {
-//      Properties properties1 = f.getJavaProperties();
-//      System.out.println(properties1.stringPropertyNames());
-//    });
-//    System.out.println(zConf.getInterpreterJson());
-    File interpreterSettingPath = new File(zConf.getInterpreterSettingPath(true));
-    String json = FileUtils.readFromFile(interpreterSettingPath);
-    System.out.println(JSON.parseObject(json).getJSONObject("interpreterSettings"));
-//    System.out.println(json);
-    Pattern pattern = Pattern.compile("%([-_0-9a-zA-Z]*)%\\.([-_0-9a-zA-Z]*)\\.([-_0-9a-zA-Z]*)");
-    Matcher matcher = pattern.matcher("%mysql-yjdp%.yjdp.mediainfo left join %mysql-dpyy%.dpyy.test");
-    HashMap<String, Tuple> imap = new HashMap();
-    while(matcher.find()){
-      System.out.println(matcher.group());
-      if(imap.containsKey(matcher.group())){
-        continue;
-      }
-      imap.put(matcher.group(),Tuple.of(matcher.group(1),matcher.group(2),matcher.group(3)));
-    }
-    System.out.println(imap);
+    InterpreterSettingManager interpreterSettingManager =
+            new InterpreterSettingManager(zConf, null, null, null);
+    System.out.println(interpreterSettingManager.getInterpreterSettingTemplates());
+//    System.out.println(interpreterSettingManager.get("beam"));
 
   }
   @Test

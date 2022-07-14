@@ -19,31 +19,31 @@ package org.apache.zeppelin.spark;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.mongodb.spark.config.ReadConfig;
 import javaslang.Tuple;
 import javaslang.Tuple3;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.apache.http.auth.InvalidCredentialsException;
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.AnalysisException;
 import org.apache.spark.sql.SparkSession;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
-import org.apache.zeppelin.interpreter.AbstractInterpreter;
-import org.apache.zeppelin.interpreter.ZeppelinContext;
-import org.apache.zeppelin.interpreter.InterpreterContext;
-import org.apache.zeppelin.interpreter.InterpreterException;
-import org.apache.zeppelin.interpreter.InterpreterResult;
+import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.interpreter.util.SqlSplitter;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
+import org.apache.zeppelin.user.AuthenticationInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.zeppelin.util.FileUtils;
-
+import com.mongodb.spark.MongoSpark;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
@@ -97,8 +97,8 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
     Object sqlContext = sparkInterpreter.getSQLContext();
     SparkContext sc = sparkInterpreter.getSparkContext();
     try {
-      st = injectOtherDb(st);
-    } catch (IOException e) {
+      st = injectOtherDb(st,context);
+    } catch (Exception e) {
       try{
         context.out.write(e.getCause().getMessage());
         context.out.flush();
@@ -187,25 +187,21 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
    * @return
    * @throws IOException
    */
-  public String injectOtherDb(String st) throws IOException {
-    LOGGER.info("##### 开始处理spark sql:"+st);
+  public String injectOtherDb(String st,InterpreterContext context) throws IOException, InvalidCredentialsException {
+    AuthenticationInfo authenticationInfo = context.getAuthenticationInfo();
+    HashSet<String> usersAndRoles = new HashSet<>(authenticationInfo.getUsersAndRoles());
     ZeppelinConfiguration zConf = ZeppelinConfiguration.create();
-    File interpreterSettingPath = new File(zConf.getInterpreterSettingPath(true));
     // load interpreter settings
-    LOGGER.info(String.format("##### 从%s读取解释器配置", interpreterSettingPath));
-    String json = FileUtils.readFromFile(interpreterSettingPath);
-    LOGGER.info(json);
-    JSONObject interpreterSettings =  JSON.parseObject(json).getJSONObject("interpreterSettings");
+    InterpreterSettingManager interpreterSettingManager =
+            new InterpreterSettingManager(zConf, null, null, null);
     // get spark session
-    LOGGER.info("##### 开始获取spark session");
     SparkSession session = (SparkSession) sparkInterpreter.getSparkSession();
-    LOGGER.info("##### 获取到spark session");
     // try to get interpreter name and db_name and table_name
     Pattern pattern = Pattern.compile("([-_0-9a-zA-Z]*)\\.([-_0-9a-zA-Z]*)\\.([-_0-9a-zA-Z]*)");
     Matcher matcher = pattern.matcher(st);
     HashMap<String, Tuple3<String,String,String>> imap = new HashMap<>();
-    while(matcher.find() && !imap.containsKey(matcher.group())){
 
+    while(matcher.find() && !imap.containsKey(matcher.group())){
       // the value of map is interpreter_id, db_name, table_name
       imap.put(matcher.group(), new Tuple3<>(matcher.group(1),matcher.group(2),matcher.group(3)));
     }
@@ -213,41 +209,65 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
       String interpreterId = info._1;
       String dbName = info._2;
       String tableName = info._3;
-      LOGGER.info(String.format("##### 尝试获取解释器配置:%s", interpreterId));
-      // interpreter group
-      String iGroup = interpreterSettings.getJSONObject(interpreterId).getString("group");
-      // if interpreter group is jdbc, then try to match Driver
+      InterpreterSetting iSetting = interpreterSettingManager.get(interpreterId);
+      if(iSetting == null){
+        throw new IOException(String.format("No such interpreter with id : %s", interpreterId));
+      }
+      // check if this user can access current interpreter
+      HashSet<String> owners = new HashSet<>(iSetting.getOption().getOwners());
+      // if owners is empty, means all users can access
+      if(!owners.isEmpty()){
+        int size1 = owners.size();
+        owners.retainAll(usersAndRoles);
+        int size2 = owners.size();
+        if(size1 == size2){
+          // no user or roles match
+          throw new InvalidCredentialsException(String.format(String.format("user %s has not privilege to access interpreter %s",authenticationInfo.getUser(), interpreterId)));
+        }
+      }
+      String iGroup = iSetting.getGroup();
+      Properties props = iSetting.getJavaProperties();
+      String newTableName = String.format("%s_%s_%s", interpreterId,dbName,tableName);
+      // do inject
       if(iGroup.equals("jdbc")){
-        String jdbcUrl = interpreterSettings.getJSONObject(interpreterId).getJSONObject("properties").getJSONObject("default.url").getString("value");
-        // mysql
-        if(jdbcUrl.startsWith("jdbc:mysql://")){
-          String user = interpreterSettings.getJSONObject(interpreterId).getJSONObject("properties").getJSONObject("default.user").getString("value");
-          String password = interpreterSettings.getJSONObject(interpreterId).getJSONObject("properties").getJSONObject("default.password").getString("value");
-          LOGGER.info("##### 开始注入虚拟表");
+        String jdbcUrl = props.getProperty("default.url");
+          String user = props.getProperty("default.user");
+          String password = props.getProperty("default.password");
+          String driver = props.getProperty("default.driver");
           Properties properties = new Properties();
           properties.setProperty("user", user);
           properties.setProperty("password", password);
-          properties.setProperty("driver","com.mysql.cj.jdbc.Driver");
-          String newTableName = String.format("%s_%s_%s", interpreterId,dbName,tableName);
+          properties.setProperty("driver",driver);
           String sqlStr = String.format("(select * from %s.%s) as t", dbName,tableName);
           session.read().jdbc(
                   jdbcUrl,
                   sqlStr,
                   properties)
                   .registerTempTable(newTableName);
-          st = st.replaceAll(interpreterId+"\\."+dbName+"\\."+tableName,newTableName);
-          LOGGER.info("##### 完成注入");
-        }
-        else{
-          throw new IOException(String.format("Unsupported interpreter: %s", interpreterId));
-        }
+
+      }else if (iGroup.equals("mongodb")){
+        HashMap<String,String> mongoProps = new HashMap<>();
+        String user = props.getProperty("mongo.server.username","");
+        String password = props.getProperty("mongo.server.password","");
+        String host = props.getProperty("mongo.server.host","127.0.0.1");
+        String port = props.getProperty("mongo.server.port","27017");
+        String authDb = props.getProperty("mongo.server.authenticationDatabase","");
+        mongoProps.put("uri", String.format("mongodb://%s:%s@%s:%s/%s.%s?authSource=%s",user,password,host,port,dbName,tableName,authDb));
+        ReadConfig readConfig = ReadConfig.create(mongoProps);
+        MongoSpark.loadAndInferSchema(session,readConfig).registerTempTable(newTableName);
       }
+      else{
+        throw new IOException(String.format("Unsupported interpreter: %s", interpreterId));
+      }
+      // replace table qualifier in sql str
+      st = st.replaceAll(interpreterId+"\\."+dbName+"\\."+tableName,newTableName);
 
     }
     return st;
 
 
   }
+
 
   @Override
   public void cancel(InterpreterContext context) throws InterpreterException {
