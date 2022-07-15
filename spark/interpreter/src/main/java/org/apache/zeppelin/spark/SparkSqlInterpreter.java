@@ -100,7 +100,9 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
       st = injectOtherDb(st,context);
     } catch (Exception e) {
       try{
-        context.out.write(e.getCause().getMessage());
+        LOGGER.error("inject DB error",e);
+        context.out.write(e.getMessage());
+        e.printStackTrace();
         context.out.flush();
         return new InterpreterResult(Code.ERROR);
       }catch(IOException ex) {
@@ -130,6 +132,7 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
       Method method = sqlContext.getClass().getMethod("sql", String.class);
       for (String sql : sqls) {
         curSql = sql;
+        LOGGER.info(String.format("interpreting %s", sql));
         String result = sparkInterpreter.getZeppelinContext()
                 .showData(method.invoke(sqlContext, sql), maxResult);
         context.out.write(result);
@@ -227,7 +230,7 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
       }
       String iGroup = iSetting.getGroup();
       Properties props = iSetting.getJavaProperties();
-      String newTableName = String.format("%s_%s_%s", interpreterId,dbName,tableName);
+      String newTableName = String.format("%s_%s_%s", interpreterId,dbName,tableName).replace("-","_");
       // do inject
       if(iGroup.equals("jdbc")){
         String jdbcUrl = props.getProperty("default.url");
@@ -238,11 +241,8 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
           properties.setProperty("user", user);
           properties.setProperty("password", password);
           properties.setProperty("driver",driver);
-          String sqlStr = String.format("(select * from %s.%s) as t", dbName,tableName);
-          session.read().jdbc(
-                  jdbcUrl,
-                  sqlStr,
-                  properties)
+          session.read()
+                  .jdbc(jdbcUrl, String.format("%s.%s", dbName,tableName),properties)
                   .registerTempTable(newTableName);
 
       }else if (iGroup.equals("mongodb")){
