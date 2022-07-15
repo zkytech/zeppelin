@@ -17,10 +17,7 @@
 
 package org.apache.zeppelin.spark;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
 import com.mongodb.spark.config.ReadConfig;
-import javaslang.Tuple;
 import javaslang.Tuple3;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.http.auth.InvalidCredentialsException;
@@ -30,16 +27,13 @@ import org.apache.spark.sql.SparkSession;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
-import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.interpreter.util.SqlSplitter;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
 import org.apache.zeppelin.user.AuthenticationInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.zeppelin.util.FileUtils;
 import com.mongodb.spark.MongoSpark;
-import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -186,8 +180,9 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
    * inject mysql/mongodb table to spark sql session
    * the table that need to inject should be declared like : %interpreterName%.dbName.tableName
    * table will be fully load into spark session without any filter
-   * @param st
-   * @return
+   * @param st query string
+   * @param context zeppelin context
+   * @return new query string
    * @throws IOException
    */
   public String injectOtherDb(String st,InterpreterContext context) throws IOException, InvalidCredentialsException {
