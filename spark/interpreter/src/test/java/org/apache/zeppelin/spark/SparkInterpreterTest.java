@@ -21,6 +21,7 @@ import com.alibaba.fastjson.JSON;
 import com.google.gson.stream.JsonReader;
 import javaslang.Tuple;
 import javaslang.Tuple3;
+import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.SparkSession;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.display.AngularObjectRegistry;
@@ -77,9 +78,8 @@ public class SparkInterpreterTest {
     ZeppelinConfiguration zConf = ZeppelinConfiguration.create();
     InterpreterSettingManager interpreterSettingManager =
             new InterpreterSettingManager(zConf, null, null, null);
-    System.out.println(interpreterSettingManager.getInterpreterSettingTemplates());
 //    System.out.println(interpreterSettingManager.get("beam"));
-
+//    JavaSparkContext jsc = new JavaSparkContext(session.sparkContext());
   }
   @Test
   public void testSparkInterpreter() throws IOException, InterruptedException, InterpreterException {

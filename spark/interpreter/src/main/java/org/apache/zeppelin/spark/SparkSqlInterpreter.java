@@ -17,11 +17,14 @@
 
 package org.apache.zeppelin.spark;
 
+import com.mongodb.Mongo;
+import com.mongodb.spark.MongoSpark$;
 import com.mongodb.spark.config.ReadConfig;
 import javaslang.Tuple3;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.http.auth.InvalidCredentialsException;
 import org.apache.spark.SparkContext;
+import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.AnalysisException;
 import org.apache.spark.sql.SparkSession;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
@@ -199,9 +202,11 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
     Matcher matcher = pattern.matcher(st);
     HashMap<String, Tuple3<String,String,String>> imap = new HashMap<>();
 
-    while(matcher.find() && !imap.containsKey(matcher.group())){
-      // the value of map is interpreter_id, db_name, table_name
-      imap.put(matcher.group(), new Tuple3<>(matcher.group(1),matcher.group(2),matcher.group(3)));
+    while(matcher.find()){
+      if(!imap.containsKey(matcher.group())){
+        // the value of map is interpreter_id, db_name, table_name
+        imap.put(matcher.group(), new Tuple3<>(matcher.group(1),matcher.group(2),matcher.group(3)));
+      }
     }
     for(Tuple3<String,String,String> info:imap.values()){
       String interpreterId = info._1;
@@ -248,8 +253,11 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
         String port = props.getProperty("mongo.server.port","27017");
         String authDb = props.getProperty("mongo.server.authenticationDatabase","");
         mongoProps.put("uri", String.format("mongodb://%s:%s@%s:%s/%s.%s?authSource=%s",user,password,host,port,dbName,tableName,authDb));
+        mongoProps.put("collection",tableName);
+        mongoProps.put("database",dbName);
+        JavaSparkContext jsc = new JavaSparkContext(session.sparkContext());
         ReadConfig readConfig = ReadConfig.create(mongoProps);
-        MongoSpark.loadAndInferSchema(session,readConfig).registerTempTable(newTableName);
+        MongoSpark.builder().javaSparkContext(jsc).readConfig(readConfig).build().toJavaRDD().toDF().registerTempTable(newTableName);
       }
       else{
         throw new IOException(String.format("Unsupported interpreter: %s", interpreterId));
