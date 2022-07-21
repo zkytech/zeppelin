@@ -17,13 +17,6 @@
 
 package org.apache.zeppelin.spark;
 
-import com.alibaba.fastjson.JSON;
-import com.google.gson.stream.JsonReader;
-import javaslang.Tuple;
-import javaslang.Tuple3;
-import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.sql.SparkSession;
-import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.display.ui.CheckBox;
 import org.apache.zeppelin.display.ui.Password;
@@ -32,20 +25,15 @@ import org.apache.zeppelin.display.ui.TextBox;
 import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.remote.RemoteInterpreterEventClient;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
-import org.apache.zeppelin.util.FileUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -67,20 +55,12 @@ public class SparkInterpreterTest {
 
   private RemoteInterpreterEventClient mockRemoteEventClient;
 
-//  @Before
-//  public void setUp() {
-//    mockRemoteEventClient = mock(RemoteInterpreterEventClient.class);
-//  }
-
-  @Test
-  public void testTmp() throws InterpreterException, IOException {
-
-    ZeppelinConfiguration zConf = ZeppelinConfiguration.create();
-    InterpreterSettingManager interpreterSettingManager =
-            new InterpreterSettingManager(zConf, null, null, null);
-//    System.out.println(interpreterSettingManager.get("beam"));
-//    JavaSparkContext jsc = new JavaSparkContext(session.sparkContext());
+  @Before
+  public void setUp() {
+    mockRemoteEventClient = mock(RemoteInterpreterEventClient.class);
   }
+
+
   @Test
   public void testSparkInterpreter() throws IOException, InterruptedException, InterpreterException {
     Properties properties = new Properties();

@@ -17,8 +17,8 @@
 
 package org.apache.zeppelin.spark;
 
-import com.mongodb.Mongo;
-import com.mongodb.spark.MongoSpark$;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.mongodb.spark.config.ReadConfig;
 import javaslang.Tuple3;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -38,11 +38,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.mongodb.spark.MongoSpark;
 import java.io.IOException;
+import java.io.Serializable;
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Properties;
+import java.lang.reflect.Type;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -85,6 +84,7 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
   @Override
   public InterpreterResult internalInterpret(String st, InterpreterContext context)
       throws InterpreterException {
+    LOGGER.info(String.format("spark sql interpreting %s", st));
     if (sparkInterpreter.isUnsupportedSparkVersion()) {
       return new InterpreterResult(Code.ERROR, "Spark "
           + sparkInterpreter.getSparkVersion().toString() + " is not supported");
@@ -191,10 +191,27 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
   public String injectOtherDb(String st,InterpreterContext context) throws IOException, InvalidCredentialsException {
     AuthenticationInfo authenticationInfo = context.getAuthenticationInfo();
     HashSet<String> usersAndRoles = new HashSet<>(authenticationInfo.getUsersAndRoles());
-    ZeppelinConfiguration zConf = ZeppelinConfiguration.create();
-    // load interpreter settings
-    InterpreterSettingManager interpreterSettingManager =
-            new InterpreterSettingManager(zConf, null, null, null);
+    Gson gson = new Gson();
+    // try to load interpreter settings from
+    Type listType = new TypeToken<ArrayList<InterSetting>>(){}.getType();
+    String interSettingsStr = context.getLocalProperties().get("interpreterSettings");
+    if(interSettingsStr == null || interSettingsStr.isEmpty()){
+      try {
+        ZeppelinConfiguration zConf = ZeppelinConfiguration.create();
+        InterpreterSettingManager interpreterSettingManager =
+                new InterpreterSettingManager(zConf, null, null, null);
+        interSettingsStr = gson.toJson(interpreterSettingManager.get());
+      }catch (Exception e){
+           LOGGER.error(e.getMessage());
+           e.printStackTrace();
+      }
+    }
+    if(interSettingsStr == null || interSettingsStr.isEmpty()){
+      context.out.write("\ncannot perform cross engine query , reason : can not load interpreter settings" );
+    }
+
+
+    List<InterSetting> interSettings = gson.fromJson(context.getLocalProperties().get("interpreterSettings"),listType);
     // get spark session
     SparkSession session = (SparkSession) sparkInterpreter.getSparkSession();
     // try to get interpreter name and db_name and table_name
@@ -212,12 +229,12 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
       String interpreterId = info._1;
       String dbName = info._2;
       String tableName = info._3;
-      InterpreterSetting iSetting = interpreterSettingManager.get(interpreterId);
+      InterSetting iSetting = getInterpreterFromList(interSettings,interpreterId).orElse(null);
       if(iSetting == null){
         throw new IOException(String.format("No such interpreter with id : %s", interpreterId));
       }
       // check if this user can access current interpreter
-      HashSet<String> owners = new HashSet<>(iSetting.getOption().getOwners());
+      HashSet<String> owners = new HashSet<>(iSetting.option.owners);
       // if owners is empty, means all users can access
       if(!owners.isEmpty()){
         int size1 = owners.size();
@@ -228,15 +245,15 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
           throw new InvalidCredentialsException(String.format(String.format("user %s has not privilege to access interpreter %s",authenticationInfo.getUser(), interpreterId)));
         }
       }
-      String iGroup = iSetting.getGroup();
-      Properties props = iSetting.getJavaProperties();
+      String iGroup = iSetting.group;
+
       String newTableName = String.format("%s_%s_%s", interpreterId,dbName,tableName).replace("-","_");
       // do inject
       if(iGroup.equals("jdbc")){
-        String jdbcUrl = props.getProperty("default.url");
-          String user = props.getProperty("default.user");
-          String password = props.getProperty("default.password");
-          String driver = props.getProperty("default.driver");
+        String jdbcUrl = iSetting.getProp("default.url");
+          String user = iSetting.getProp("default.user");
+          String password =  iSetting.getProp("default.password");
+          String driver =  iSetting.getProp("default.driver");
           Properties properties = new Properties();
           properties.setProperty("user", user);
           properties.setProperty("password", password);
@@ -247,11 +264,11 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
 
       }else if (iGroup.equals("mongodb")){
         HashMap<String,String> mongoProps = new HashMap<>();
-        String user = props.getProperty("mongo.server.username","");
-        String password = props.getProperty("mongo.server.password","");
-        String host = props.getProperty("mongo.server.host","127.0.0.1");
-        String port = props.getProperty("mongo.server.port","27017");
-        String authDb = props.getProperty("mongo.server.authenticationDatabase","");
+        String user =  iSetting.getProp("mongo.server.username","");
+        String password =  iSetting.getProp("mongo.server.password","");
+        String host = iSetting.getProp("mongo.server.host","127.0.0.1");
+        String port = iSetting.getProp("mongo.server.port","27017");
+        String authDb = iSetting.getProp("mongo.server.authenticationDatabase","");
         mongoProps.put("uri", String.format("mongodb://%s:%s@%s:%s/%s.%s?authSource=%s",user,password,host,port,dbName,tableName,authDb));
         mongoProps.put("collection",tableName);
         mongoProps.put("database",dbName);
@@ -269,6 +286,10 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
     return st;
 
 
+  }
+
+  private Optional<InterSetting> getInterpreterFromList(List<InterSetting> interpreterSettings,String interpreterId){
+    return interpreterSettings.stream().filter(interpreterSetting -> Objects.equals(interpreterSetting.id, interpreterId)).findFirst();
   }
 
 
@@ -309,5 +330,49 @@ public class SparkSqlInterpreter extends AbstractInterpreter {
         throw new RuntimeException("Fail to getScheduler", e);
       }
     }
+  }
+
+  private class InterSetting implements Serializable {
+    public String id;
+    public String name;
+    public String group;
+    public Map<String,Prop> properties;
+    public String status;
+    public Opt option;
+
+    public String getProp(String key){
+      Prop prop =  properties.get(key);
+      if(prop == null){
+        return null;
+      }
+      return prop.value;
+    }
+
+    public String getProp(String key,String default_val){
+      if (getProp(key) == null){
+        return default_val;
+      }else{
+        return getProp(key);
+      }
+    }
+
+    public class Prop implements Serializable{
+      public String name;
+      public String value;
+      public String type;
+      public String description;
+    }
+
+    private class Opt implements Serializable{
+      public boolean remote;
+      public int port;
+      public String perNote;
+      public String perUser;
+      public boolean isExistingProcess;
+      public boolean setPermission;
+      public List<String> owners;
+      public boolean isUserImpersonate;
+    }
+
   }
 }

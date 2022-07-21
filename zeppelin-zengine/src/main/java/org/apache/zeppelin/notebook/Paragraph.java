@@ -29,26 +29,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.gson.Gson;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.zeppelin.common.JsonSerializable;
+import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.display.AngularObject;
 import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.display.GUI;
 import org.apache.zeppelin.display.Input;
 import org.apache.zeppelin.helium.HeliumPackage;
-import org.apache.zeppelin.interpreter.Constants;
-import org.apache.zeppelin.interpreter.ExecutionContext;
-import org.apache.zeppelin.interpreter.Interpreter;
+import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.Interpreter.FormType;
-import org.apache.zeppelin.interpreter.InterpreterContext;
-import org.apache.zeppelin.interpreter.InterpreterException;
-import org.apache.zeppelin.interpreter.InterpreterNotFoundException;
-import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
-import org.apache.zeppelin.interpreter.InterpreterResultMessage;
-import org.apache.zeppelin.interpreter.InterpreterSetting;
-import org.apache.zeppelin.interpreter.ManagedInterpreterGroup;
 import org.apache.zeppelin.interpreter.remote.RemoteInterpreter;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.resource.ResourcePool;
@@ -411,8 +404,8 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
         LOGGER.error("Can not find interpreter name " + intpText);
         throw new RuntimeException("Can not find interpreter for " + intpText);
       }
-      LOGGER.info("Run paragraph [title: {}, paragraph_id: {}, interpreter: {}, note_id: {}, user: {}]\n\n{}\n\n",
-              getTitle(), getId(), this.interpreter.getClassName(), note.getId(), subject.getUser(), getText());
+      LOGGER.info("Run paragraph [title: {}, paragraph_id: {}, interpreter: {}, note_id: {}, note_name: {} , user: {}]\n\n{}\n\n",
+              getTitle(), getId(), this.interpreter.getClassName(), note.getId(), note.getName(), subject.getUser(), getText());
       InterpreterSetting interpreterSetting = ((ManagedInterpreterGroup)
               interpreter.getInterpreterGroup()).getInterpreterSetting();
       if (interpreterSetting.getStatus() != InterpreterSetting.Status.READY) {
@@ -466,8 +459,13 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
       LOGGER.debug("RUN : " + script);
       try {
         InterpreterContext context = getInterpreterContext();
+        ZeppelinConfiguration zConf = ZeppelinConfiguration.create();
+        // load interpreter settings
+        InterpreterSettingManager interpreterSettingManager =
+                new InterpreterSettingManager(zConf, null, null, null);
+        // inject interpreter settings to localProperties
+        context.getLocalProperties().put("interpreterSettings",new Gson().toJson(interpreterSettingManager.get()));
         InterpreterContext.set(context);
-
         // Inject credentials
         String injectPropStr = interpreter.getProperty(Constants.INJECT_CREDENTIALS, "false");
         injectPropStr = context.getStringLocalProperty(Constants.INJECT_CREDENTIALS, injectPropStr);
@@ -824,7 +822,6 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
       Map<String, Object> config
               = interpreterSetting.getConfig(interpreter.getClassName());
       mergeConfig(config);
-
       if (shouldSkipRunParagraph()) {
         LOGGER.info("Skip to run blank paragraph. {}", getId());
         setStatus(Job.Status.FINISHED);

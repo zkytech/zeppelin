@@ -343,18 +343,13 @@
       <version>1.4.9</version>
       <scope>test</scope>
     </dependency>
-      <dependency>
-          <groupId>org.apache.zeppelin</groupId>
-          <artifactId>zeppelin-zengine</artifactId>
-          <version>0.10.1</version>
-          <scope>test</scope>
-      </dependency>
     <dependency>
       <groupId>org.apache.zeppelin</groupId>
       <artifactId>zeppelin-zengine</artifactId>
       <version>0.10.1</version>
       <scope>compile</scope>
     </dependency>
+
 
   </dependencies>
 
