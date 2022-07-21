@@ -490,13 +490,12 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
         if (Code.KEEP_PREVIOUS_RESULT == ret.code()) {
           return getReturn();
         }
-
         Paragraph p = getUserParagraph(getUser());
         if (null != p) {
           p.setResult(ret);
           p.settings.setParams(settings.getParams());
         }
-
+        LOGGER.debug("user {} get query result of Paragraph {} : {}",subject.getUser() ,this.getId() ,ret.toJson());
         return ret;
       } finally {
         InterpreterContext.remove();
