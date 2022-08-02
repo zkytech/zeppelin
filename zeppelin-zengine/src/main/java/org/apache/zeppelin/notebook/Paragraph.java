@@ -464,8 +464,12 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
         InterpreterSettingManager interpreterSettingManager =
                 new InterpreterSettingManager(zConf, null, null, null);
         // if current interpreter is spark, then inject interpreter settings to localProperties
-        if(interpreterSetting.getGroup().equals("spark")){
+        String user = getAuthenticationInfo().getUser();
+        String roles = String.join(",",getAuthenticationInfo().getRoles());
+        if(interpreterSetting.getGroup().equals("spark") || interpreterSetting.getGroup().equals("livy")){
           context.getLocalProperties().put("interpreterSettings",new Gson().toJson(interpreterSettingManager.get()));
+          context.getLocalProperties().put("currUser",user);
+          context.getLocalProperties().put("currRoles",roles);
         }
         InterpreterContext.set(context);
         // Inject credentials

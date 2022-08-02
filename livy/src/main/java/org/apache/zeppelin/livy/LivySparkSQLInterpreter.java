@@ -140,6 +140,12 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
       InterpreterResult result = sparkInterpreter.interpret(sqlQuery, context);
       if (result.code() == InterpreterResult.Code.SUCCESS) {
         InterpreterResult result2 = new InterpreterResult(InterpreterResult.Code.SUCCESS);
+        LOGGER.info("##### result");
+        LOGGER.info(result.toString());
+        LOGGER.info("##### result");
+        LOGGER.info(result.toJson());
+
+
         for (InterpreterResultMessage message : result.message()) {
           // convert Text type to Table type. We assume the text type must be the sql output. This
           // assumption is correct for now. Ideally livy should return table type. We may do it in
@@ -160,6 +166,8 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
             result2.add(message.getType(), message.getData());
           }
         }
+        LOGGER.info("##### result2");
+        LOGGER.info(result2.toString());
         return result2;
       } else {
         return result;
@@ -178,7 +186,11 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
 
   protected List<String> parseSQLJsonOutput(String output) {
     List<String> rows = new ArrayList<>();
-
+    int i_ = output.indexOf("+-");
+    if (i_ ==  -1){
+      i_ = output.indexOf("df: org.apache.spark.sql.DataFrame = [");
+    }
+    output = output.substring(i_);
     String[] rowsOutput = output.split("(?<!\\\\)\\n");
     String[] header = rowsOutput[1].split("\t");
     List<String> cells = new ArrayList<>(Arrays.asList(header));
@@ -205,6 +217,8 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
     // for spark every chinese character has two placeholder(one placeholder is one char)
     // for zeppelin it has only one placeholder.
     // insert a special character (/u0001) which never use after every chinese character
+    int i = str.indexOf("+-");
+    str = str.substring(i);
     String fullWidthRegex = "([" +
             "\u1100-\u115F" +
             "\u2E80-\uA4CF" +
