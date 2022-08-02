@@ -79,6 +79,8 @@ import org.apache.zeppelin.interpreter.InterpreterResultMessage;
 import org.apache.zeppelin.interpreter.InterpreterUtils;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 
+import static java.lang.String.format;
+
 /**
  * Base class for livy interpreters.
  */
@@ -308,11 +310,12 @@ public abstract class BaseLivyInterpreter extends Interpreter {
           conf.put(entry.getKey().toString().substring(5), entry.getValue().toString());
         }
       }
-
+      user = this.getProperty("zeppelin.livy.defaultUser");
       CreateSessionRequest request = new CreateSessionRequest(kind,
-          user == null || user.equals("anonymous") ? null : user, conf);
+                user == null || user.equals("anonymous") ? null : user, conf);
       SessionInfo sessionInfo = SessionInfo.fromJson(
           callRestAPI("/sessions", "POST", request.toJson()));
+      LOGGER.info(format("##### username :%s", user));
       long start = System.currentTimeMillis();
       // pull the session status until it is idle or timeout
       while (!sessionInfo.isReady()) {
@@ -709,7 +712,7 @@ public abstract class BaseLivyInterpreter extends Interpreter {
       }
     } catch (HttpClientErrorException e) {
       response = new ResponseEntity(e.getResponseBodyAsString(), e.getStatusCode());
-      LOGGER.error(String.format("Error with %s StatusCode: %s",
+      LOGGER.error(format("Error with %s StatusCode: %s",
           response.getStatusCode().value(), e.getResponseBodyAsString()));
     } catch (RestClientException e) {
       // Exception happens when kerberos is enabled.
@@ -751,7 +754,7 @@ public abstract class BaseLivyInterpreter extends Interpreter {
       if (responseString.contains("CreateInteractiveRequest[\\\"master\\\"]")) {
         return responseString;
       }
-      throw new LivyException(String.format("Error with %s StatusCode: %s",
+      throw new LivyException(format("Error with %s StatusCode: %s",
           response.getStatusCode().value(), responseString));
     }
   }
@@ -760,7 +763,7 @@ public abstract class BaseLivyInterpreter extends Interpreter {
     try {
       callRestAPI("/sessions/" + sessionId, "DELETE");
     } catch (Exception e) {
-      LOGGER.error(String.format("Error closing session for user with session ID: %s",
+      LOGGER.error(format("Error closing session for user with session ID: %s",
           sessionId), e);
     }
   }
