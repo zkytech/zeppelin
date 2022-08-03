@@ -140,11 +140,6 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
       InterpreterResult result = sparkInterpreter.interpret(sqlQuery, context);
       if (result.code() == InterpreterResult.Code.SUCCESS) {
         InterpreterResult result2 = new InterpreterResult(InterpreterResult.Code.SUCCESS);
-        LOGGER.info("##### result");
-        LOGGER.info(result.toString());
-        LOGGER.info("##### result");
-        LOGGER.info(result.toJson());
-
 
         for (InterpreterResultMessage message : result.message()) {
           // convert Text type to Table type. We assume the text type must be the sql output. This
@@ -166,8 +161,6 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
             result2.add(message.getType(), message.getData());
           }
         }
-        LOGGER.info("##### result2");
-        LOGGER.info(result2.toString());
         return result2;
       } else {
         return result;

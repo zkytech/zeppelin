@@ -348,14 +348,16 @@ public abstract class BaseLivyInterpreter extends Interpreter {
         String port = iSetting.getProp("mongo.server.port","27017");
         String authDb = iSetting.getProp("mongo.server.authenticationDatabase","");
         String mongoUri = String.format("mongodb://%s:%s@%s:%s/%s.%s?authSource=%s",user,password,host,port,dbName,tableName,authDb);
-        st = "   var mongoProps = new java.util.HashMap[String,String]();     " +
-                "" +
-                "mongoProps.put(\"uri\", \""+mongoUri+"\");\n" +
-                "        mongoProps.put(\"collection\",\""+tableName+"\");\n" +
-                "        mongoProps.put(\"database\",\""+dbName+"\");\n" +
-                "        var jsc = new org.apache.spark.api.java.JavaSparkContext(spark.sparkContext);\n" +
-                "        var readConfig = com.mongodb.spark.config.ReadConfig.create(mongoProps);\n" +
-                "        MongoSpark.builder().javaSparkContext(jsc).readConfig(readConfig).build().toJavaRDD().toDF().registerTempTable(newTableName);\n" +
+        st = "import com.mongodb.spark.config._\n" +
+                "import com.mongodb.spark.MongoSpark\n" +
+                "\n" +
+                "var readConfig = ReadConfig(\n" +
+                "    Map(\"collection\" -> \""+tableName+"\",\n" +
+                "        \"database\" -> \""+dbName+"\",\n" +
+                "        \"uri\" -> \""+mongoUri+"\"\n" +
+                "        )\n" +
+                "    )\n" +
+                "MongoSpark.load(spark,readConfig).toDF.registerTempTable(\""+newTableName+"\")  " +
                 "\n" + st;
 
       }
