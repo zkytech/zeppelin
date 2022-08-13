@@ -63,6 +63,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Type;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.Principal;
@@ -224,7 +225,7 @@ public abstract class BaseLivyInterpreter extends Interpreter {
   public InterpreterResult interpret(String st, InterpreterContext context) {
     try{
       st = injectOtherDb(st,context);
-      LOGGER.info("##### interpretering content: \n" + st);
+      LOGGER.info("##### interpreting content: \n" + st);
     } catch (Exception e) {
       try{
         LOGGER.error("inject DB error",e);
@@ -316,12 +317,9 @@ public abstract class BaseLivyInterpreter extends Interpreter {
       HashSet<String> owners = new HashSet<>(iSetting.option.owners);
       // if owners is empty, means all users can access
       if(!owners.isEmpty()){
-        int size1 = owners.size();
-        owners.retainAll(usersAndRoles);
-        int size2 = owners.size();
-        if(size1 == size2){
+        if(!owners.retainAll(usersAndRoles)){
           // no user or roles match
-          throw new InvalidCredentialsException(String.format(String.format("user %s has not privilege to access interpreter %s",currUser, interpreterId)));
+          throw new InvalidCredentialsException(String.format(String.format("user %s has no privilege to access interpreter %s",currUser, interpreterId)));
         }
       }
       String iGroup = iSetting.group;
@@ -347,6 +345,7 @@ public abstract class BaseLivyInterpreter extends Interpreter {
         String host = iSetting.getProp("mongo.server.host","127.0.0.1");
         String port = iSetting.getProp("mongo.server.port","27017");
         String authDb = iSetting.getProp("mongo.server.authenticationDatabase","");
+        password = URLEncoder.encode(password, StandardCharsets.UTF_8.name());
         String mongoUri = String.format("mongodb://%s:%s@%s:%s/%s.%s?authSource=%s",user,password,host,port,dbName,tableName,authDb);
         st = "import com.mongodb.spark.config._\n" +
                 "import com.mongodb.spark.MongoSpark\n" +
