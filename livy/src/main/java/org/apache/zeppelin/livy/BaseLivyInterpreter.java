@@ -373,13 +373,13 @@ public abstract class BaseLivyInterpreter extends Interpreter {
                 "import org.apache.hadoop.hbase.util.Bytes\n" +
                 "import org.apache.spark.SparkEnv\n" +
                 "val requireKerberos = SparkEnv.get.conf.getBoolean(\"spark.hbase.connector.security.credentials.enabled\",false)\n" +
-                "val principal = SparkEnv.get.conf.get(\"spark.hbase.connector.security.credentials\")\n" +
-                "val keytab = SparkEnv.get.conf.get(\"spark.hbase.connector.security.keytab\")\n" +
                 "val conf = HBaseConfiguration.create\n" +
                 "conf.set(\"hbase.zookeeper.quorum\", \"hadoop1.4482.interconnect-hy2:2181,hadoop2.4482.interconnect-hy2:2181,hadoop3.4482.interconnect-hy2:2181\")\n" +
                 "\n" +
                 "var connection:org.apache.hadoop.hbase.client.Connection = null\n" +
                 "if(requireKerberos){\n" +
+                "    val principal = SparkEnv.get.conf.get(\"spark.hbase.connector.security.credentials\")\n" +
+                "    val keytab = SparkEnv.get.conf.get(\"spark.hbase.connector.security.keytab\")\n" +
                 "    System.setProperty(\"javax.security.auth.useSubjectCredsOnly\", \"false\")\n" +
                 "    conf.set(\"hbase.client.kerberos.principal\", principal)\n" +
                 "    conf.set(\"hbase.client.keytab.file\", keytab)\n" +
