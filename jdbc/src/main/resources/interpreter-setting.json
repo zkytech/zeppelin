@@ -32,6 +32,13 @@
         "description": "JDBC Driver Name",
         "type": "string"
       },
+      "default.readonly": {
+        "envName": null,
+        "propertyName": "default.readonly",
+        "defaultValue": "true",
+        "description": "readonly connection",
+        "type": "checkbox"
+      },
       "default.completer.ttlInSeconds": {
         "envName": null,
         "propertyName": "default.completer.ttlInSeconds",

@@ -19,6 +19,13 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
 import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 import static org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod.KERBEROS;
 
+import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.statement.DescribeStatement;
+import net.sf.jsqlparser.statement.ShowColumnsStatement;
+import net.sf.jsqlparser.statement.ShowStatement;
+import net.sf.jsqlparser.statement.UseStatement;
+import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.show.ShowTablesStatement;
 import org.apache.commons.dbcp2.ConnectionFactory;
 import org.apache.commons.dbcp2.DriverManagerConnectionFactory;
 import org.apache.commons.dbcp2.PoolableConnectionFactory;
@@ -769,6 +776,32 @@ public class JDBCInterpreter extends KerberosInterpreter {
     try {
       List<String>  sqlArray = sqlSplitter.splitSql(sql);
       for (String sqlToExecute : sqlArray) {
+        if (properties.getProperty("default.readonly").equalsIgnoreCase("true")) {
+          try {
+            net.sf.jsqlparser.statement.Statement stmt = CCJSqlParserUtil.parse(sqlToExecute);
+            String stmtType = "";
+            if (stmt instanceof Select) {
+              stmtType = "select";
+            }
+            if (stmt instanceof ShowTablesStatement || stmt instanceof ShowStatement
+                    || stmt instanceof ShowColumnsStatement) {
+              stmtType = "show";
+            }
+            if (stmt instanceof DescribeStatement) {
+              stmtType = "desc";
+            }
+            if (stmt instanceof UseStatement){
+              stmtType = "use";
+            }
+            LOGGER.info("##### current sql type is :{}", stmtType);
+            if (stmtType.isEmpty()){
+              return new InterpreterResult(Code.ERROR,
+                      "Connection is readonly, only select/show/desc/use is allowed");
+            }
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+        }
         String sqlTrimmedLowerCase = sqlToExecute.trim().toLowerCase();
         if (sqlTrimmedLowerCase.startsWith("set ") ||
                 sqlTrimmedLowerCase.startsWith("list ") ||
