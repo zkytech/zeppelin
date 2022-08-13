@@ -23,22 +23,12 @@ import com.google.gson.reflect.TypeToken;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Properties;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Locale;
+
+import java.util.*;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.zeppelin.interpreter.InterpreterContext;
-import org.apache.zeppelin.interpreter.InterpreterException;
-import org.apache.zeppelin.interpreter.InterpreterOutput;
-import org.apache.zeppelin.interpreter.InterpreterResult;
-import org.apache.zeppelin.interpreter.InterpreterResultMessage;
-import org.apache.zeppelin.interpreter.InterpreterUtils;
-import org.apache.zeppelin.interpreter.ResultMessages;
+import org.apache.zeppelin.interpreter.*;
+import org.apache.zeppelin.interpreter.util.SqlSplitter;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
 
@@ -55,11 +45,18 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
       "zeppelin.livy.spark.sql.maxResult";
 
   private LivySparkInterpreter sparkInterpreter;
-
+  static final String COMMON_KEY = "common";
+  static final String MAX_LINE_KEY = "max_count";
+  static final String EMPTY_COLUMN_VALUE = "";
   private boolean isSpark2 = false;
   private int maxResult = 1000;
   private boolean truncate = true;
-
+  private SqlSplitter sqlSplitter;
+  static final String DOT = ".";
+  private static final char WHITESPACE = ' ';
+  private static final char NEWLINE = '\n';
+  private static final char TAB = '\t';
+  private static final String TABLE_MAGIC_TAG = "%table ";
   public LivySparkSQLInterpreter(Properties property) {
     super(property);
     this.maxResult = Integer.parseInt(property.getProperty(ZEPPELIN_LIVY_SPARK_SQL_MAX_RESULT));
@@ -76,6 +73,7 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
 
   @Override
   public void open() throws InterpreterException {
+    this.sqlSplitter = new SqlSplitter();
     this.sparkInterpreter = getInterpreterInTheSameSessionByClassName(LivySparkInterpreter.class);
     // As we don't know whether livyserver use spark2 or spark1, so we will detect SparkSession
     // to judge whether it is using spark2.
@@ -114,6 +112,33 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
 
   @Override
   public InterpreterResult interpret(String line, InterpreterContext context) {
+    LOGGER.info(String.format("##### livy.sql is interpreting %s", line));
+    List<String> sqlQueries = sqlSplitter.splitSql(line);
+    for (String query:sqlQueries) {
+      LOGGER.info(String.format("##### interpreting SQL: %s", query));
+      try {
+        InterpreterResult res = interpret_(query, context);
+        for(InterpreterResultMessage msg: res.message()){
+          if (msg.toString().contains("%html <hr/>Spark Application Id:")){
+            continue;
+          }
+          context.out.write(msg.toString());
+          context.out.write("\n\n");
+          context.out.flush();
+
+        }
+
+      }catch (Exception e){
+        LOGGER.error(e.getMessage());
+        e.printStackTrace();
+      }
+      LOGGER.info(String.format(String.format("##### SQL complete : %s", query)));
+    }
+
+    return new InterpreterResult(InterpreterResult.Code.SUCCESS);
+  }
+
+  public InterpreterResult interpret_(String line, InterpreterContext context) {
     try {
       if (StringUtils.isEmpty(line)) {
         return new InterpreterResult(InterpreterResult.Code.SUCCESS, "");
@@ -142,6 +167,9 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
         InterpreterResult result2 = new InterpreterResult(InterpreterResult.Code.SUCCESS);
 
         for (InterpreterResultMessage message : result.message()) {
+          if(message.getData() != null && Objects.equals(message.getData().trim(), "df: org.apache.spark.sql.DataFrame = []")){
+            continue;
+          }
           // convert Text type to Table type. We assume the text type must be the sql output. This
           // assumption is correct for now. Ideally livy should return table type. We may do it in
           // the future release of livy.
