@@ -256,7 +256,7 @@ public abstract class BaseLivyInterpreter extends Interpreter {
     }
   }
 
-  public String injectOtherDb(String st,InterpreterContext context) throws IOException, InvalidCredentialsException {
+  public String injectOtherDb(String st,InterpreterContext context) throws IOException, InvalidCredentialsException, LivyException {
 
     String currUser = context.getLocalProperties().get("currUser");
     String roles = context.getLocalProperties().get("currRoles");
@@ -286,8 +286,6 @@ public abstract class BaseLivyInterpreter extends Interpreter {
     if(interSettingsStr == null || interSettingsStr.isEmpty()){
       context.out.write("\ncannot perform cross engine query , reason : can not load interpreter settings" );
     }
-
-
     List<InterSetting> interSettings = gson.fromJson(context.getLocalProperties().get("interpreterSettings"),listType);
 
     // try to get interpreter name and db_name and table_name
@@ -303,6 +301,7 @@ public abstract class BaseLivyInterpreter extends Interpreter {
     }
     LOGGER.info("##### found inject target:" + imap.toString());
     for(org.parboiled.common.Tuple3<String,String,String> info:imap.values()){
+      String code_to_exec = null;
       String interpreterId = info.a;
       String dbName = info.b;
       String tableName = info.c;
@@ -332,7 +331,7 @@ public abstract class BaseLivyInterpreter extends Interpreter {
         String password =  iSetting.getProp("default.password");
         String driver =  iSetting.getProp("default.driver");
 
-        st = "           var properties = new java.util.Properties()\n" +
+        code_to_exec = "           var properties = new java.util.Properties()\n" +
                 "        properties.setProperty(\"user\", \""+user+"\")\n" +
                 "        properties.setProperty(\"password\", \""+password+"\")\n" +
                 "        properties.setProperty(\"driver\",\""+driver+"\")     \n" +
@@ -347,7 +346,7 @@ public abstract class BaseLivyInterpreter extends Interpreter {
         String authDb = iSetting.getProp("mongo.server.authenticationDatabase","");
         password = URLEncoder.encode(password, StandardCharsets.UTF_8.name());
         String mongoUri = String.format("mongodb://%s:%s@%s:%s/%s.%s?authSource=%s",user,password,host,port,dbName,tableName,authDb);
-        st = "import com.mongodb.spark.config._\n" +
+        code_to_exec = "import com.mongodb.spark.config._\n" +
                 "import com.mongodb.spark.MongoSpark\n" +
                 "\n" +
                 "var readConfig = ReadConfig(\n" +
@@ -357,17 +356,101 @@ public abstract class BaseLivyInterpreter extends Interpreter {
                 "        )\n" +
                 "    )\n" +
                 "MongoSpark.load(spark,readConfig).toDF.registerTempTable(\""+newTableName+"\")  " +
-                "\n" + st;
+                "\n"
 
-      }
-      else{
+        ;
+
+      } else if (iGroup.equals("hbase")) {
+        code_to_exec =  "" +
+                "import org.apache.hadoop.conf.Configuration\n" +
+                "import org.apache.hadoop.security.UserGroupInformation\n" +
+                "import org.apache.hadoop.hbase.HBaseConfiguration\n" +
+                "import org.apache.hadoop.hbase.client.{Connection, ConnectionFactory, HBaseAdmin}\n" +
+                "import org.apache.hadoop.hbase.security.User\n" +
+                "import java.security.PrivilegedAction\n" +
+                "import org.apache.hadoop.hbase.TableName\n" +
+                "import org.apache.hadoop.hbase.client.Scan\n" +
+                "import org.apache.hadoop.hbase.util.Bytes\n" +
+                "import org.apache.spark.SparkEnv\n" +
+                "val requireKerberos = SparkEnv.get.conf.getBoolean(\"spark.hbase.connector.security.credentials.enabled\",false)\n" +
+                "val principal = SparkEnv.get.conf.get(\"spark.hbase.connector.security.credentials\")\n" +
+                "val keytab = SparkEnv.get.conf.get(\"spark.hbase.connector.security.keytab\")\n" +
+                "val conf = HBaseConfiguration.create\n" +
+                "conf.set(\"hbase.zookeeper.quorum\", \"hadoop1.4482.interconnect-hy2:2181,hadoop2.4482.interconnect-hy2:2181,hadoop3.4482.interconnect-hy2:2181\")\n" +
+                "\n" +
+                "var connection:org.apache.hadoop.hbase.client.Connection = null\n" +
+                "if(requireKerberos){\n" +
+                "    System.setProperty(\"javax.security.auth.useSubjectCredsOnly\", \"false\")\n" +
+                "    conf.set(\"hbase.client.kerberos.principal\", principal)\n" +
+                "    conf.set(\"hbase.client.keytab.file\", keytab)\n" +
+                "    val ugi = UserGroupInformation.loginUserFromKeytabAndReturnUGI(principal, keytab)\n" +
+                "    ugi.doAs(new PrivilegedAction[Unit] {\n" +
+                "        override def run(): Unit = {\n" +
+                "            connection = ConnectionFactory.createConnection(conf,User.create(ugi))\n" +
+                "            HBaseAdmin.available(conf)\n" +
+                "        }\n" +
+                "  })\n" +
+                "}else{\n" +
+                "     connection = ConnectionFactory.createConnection(conf)\n" +
+                "}\n" +
+                "// scan first row to get structure\n" +
+                "val namespace = \""+dbName+"\"\n" +
+                "val table_name = \""+tableName+"\"\n" +
+                "val scan = new Scan()\n" +
+                "val table = connection.getTable(TableName.valueOf(s\"${namespace}:${table_name}\"))\n" +
+                "val map_all = table.getScanner(scan).next().getMap\n" +
+                "val it_fm = map_all.keySet().iterator()\n" +
+                "var col_names:Seq[String] = Seq()\n" +
+                "\n" +
+                "while(it_fm.hasNext){\n" +
+                "    val family = it_fm.next()\n" +
+                "    val it_col = map_all.get(family).keySet().iterator()\n" +
+                "    \n" +
+                "    while (it_col.hasNext){\n" +
+                "        val col = it_col.next()\n" +
+                "        val col_name = s\"${Bytes.toString(family)}:${Bytes.toString(col)}\"\n" +
+                "        col_names = col_names ++ Seq(col_name)\n" +
+                "    }\n" +
+                "}\n" +
+                "connection.close()\n" +
+                "\n" +
+                "\n" +
+                "import org.apache.spark.sql.execution.datasources.hbase._\n" +
+                "val col_struct = col_names.map(_.split(\":\")).map(t => {\n" +
+                "    val s1 = t(0)\n" +
+                "    val s2 = t(1)\n" +
+                "    s\"\"\" \"${s1}_${s2}\":{\"cf\":\"$s1\" , \"col\":\"$s2\", \"type\":\"string\"} \"\"\"}).mkString(\",\")\n" +
+                "\n" +
+                "val catalog = s\"\"\"{\n" +
+                "        |\"table\":{\"namespace\":\"${namespace}\", \"name\":\"${table_name}\"},\n" +
+                "        |\"rowkey\":\"rowkey\",\n" +
+                "        |\"columns\":{\n" +
+                "          |\"rowkey\":{\"cf\":\"rowkey\", \"col\":\"rowkey\", \"type\":\"string\"},\n" +
+                "          |${col_struct}\n" +
+                "        |}\n" +
+                "      |}\"\"\".stripMargin\n" +
+                "\n" +
+                "spark.sqlContext.\n" +
+                "  read.\n" +
+                "  options(Map(\n" +
+                "        HBaseTableCatalog.tableCatalog->catalog\n" +
+                "  )).\n" +
+                "  format(\"org.apache.spark.sql.execution.datasources.hbase\").\n" +
+                "  load().\n" +
+                "  registerTempTable(\""+newTableName+"\")\n";
+
+      } else{
 //        throw new IOException(String.format("Unsupported interpreter: %s", interpreterId));
         continue;
       }
       // replace table qualifier in sql str
       st = st.replaceAll(interpreterId+"\\."+dbName+"\\."+tableName,newTableName);
       LOGGER.info("finished inject :" + interpreterId);
-
+      if (sharedInterpreter != null && sharedInterpreter.isSupported()) {
+        sharedInterpreter.interpret(code_to_exec, getCodeType(), context);
+        continue;
+      }
+      interpret(st, null, context.getParagraphId(), this.displayAppInfo, true, true);
     }
     return st;
 

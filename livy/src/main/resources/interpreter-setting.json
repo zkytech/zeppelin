@@ -120,6 +120,24 @@
         "defaultValue": false,
         "description": "Whether restart a dead session",
         "type": "checkbox"
+      },
+      "spark.hbase.connector.security.credentials.enabled": {
+        "propertyName": "spark.hbase.connector.security.credentials.enabled",
+        "defaultValue": false,
+        "description": "Whether enable kerberos authentication in hbase",
+        "type": "checkbox"
+      },
+      "spark.hbase.connector.security.credentials": {
+        "propertyName": "spark.hbase.connector.security.credentials",
+        "defaultValue": false,
+        "description": "hbase kerberos principal",
+        "type": "textarea"
+      },
+      "spark.hbase.connector.security.keytab": {
+        "propertyName": "spark.hbase.connector.security.keytab",
+        "defaultValue": false,
+        "description": "hbase kerberos keytab filepath",
+        "type": "textarea"
       }
     },
     "option": {
