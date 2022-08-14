@@ -207,11 +207,6 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
 
   protected List<String> parseSQLJsonOutput(String output) {
     List<String> rows = new ArrayList<>();
-    int i_ = output.indexOf("+-");
-    if (i_ ==  -1){
-      i_ = output.indexOf("df: org.apache.spark.sql.DataFrame = [");
-    }
-    output = output.substring(i_);
     String[] rowsOutput = output.split("(?<!\\\\)\\n");
     String[] header = rowsOutput[1].split("\t");
     List<String> cells = new ArrayList<>(Arrays.asList(header));
@@ -238,8 +233,6 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
     // for spark every chinese character has two placeholder(one placeholder is one char)
     // for zeppelin it has only one placeholder.
     // insert a special character (/u0001) which never use after every chinese character
-    int i = str.indexOf("+-");
-    str = str.substring(i);
     String fullWidthRegex = "([" +
             "\u1100-\u115F" +
             "\u2E80-\uA4CF" +
