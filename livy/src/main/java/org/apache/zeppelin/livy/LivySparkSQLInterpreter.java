@@ -112,27 +112,37 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
 
   @Override
   public InterpreterResult interpret(String line, InterpreterContext context) {
-    LOGGER.info(String.format("##### livy.sql is interpreting %s", line));
+    String appInfoHtml = "";
     List<String> sqlQueries = sqlSplitter.splitSql(line);
     for (String query:sqlQueries) {
-      LOGGER.info(String.format("##### interpreting SQL: %s", query));
       try {
         InterpreterResult res = interpret_(query, context);
         for(InterpreterResultMessage msg: res.message()){
-          if (msg.toString().contains("%html <hr/>Spark Application Id:")){
-            continue;
+          if (this.displayAppInfo){
+            if (msg.getData().startsWith("<hr/>Spark Application Id: ")){
+              appInfoHtml = msg.toString();
+              continue;
+            }
           }
           context.out.write(msg.toString());
-          context.out.write("\n\n");
+          context.out.write("\n");
           context.out.flush();
-
         }
+      }catch (Exception e){
+        LOGGER.error(e.getMessage());
+        LOGGER.error(e.toString());
+        e.printStackTrace();
+      }
+    }
 
+    if(this.displayAppInfo){
+      try {
+        context.out.write(appInfoHtml);
+        context.out.flush();
       }catch (Exception e){
         LOGGER.error(e.getMessage());
         e.printStackTrace();
       }
-      LOGGER.info(String.format(String.format("##### SQL complete : %s", query)));
     }
 
     return new InterpreterResult(InterpreterResult.Code.SUCCESS);
@@ -167,7 +177,7 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
         InterpreterResult result2 = new InterpreterResult(InterpreterResult.Code.SUCCESS);
 
         for (InterpreterResultMessage message : result.message()) {
-          if(message.getData() != null && Objects.equals(message.getData().trim(), "df: org.apache.spark.sql.DataFrame = []")){
+          if (message.getType() == InterpreterResult.Type.TEXT && message.getData().equals("df: org.apache.spark.sql.DataFrame = []")){
             continue;
           }
           // convert Text type to Table type. We assume the text type must be the sql output. This
