@@ -177,9 +177,19 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
         InterpreterResult result2 = new InterpreterResult(InterpreterResult.Code.SUCCESS);
 
         for (InterpreterResultMessage message : result.message()) {
-          if (message.getType() == InterpreterResult.Type.TEXT && message.getData().equals("df: org.apache.spark.sql.DataFrame = []")){
-            continue;
-          }
+          // when sql content is DDL and tableWithUTFCharacter, message.getData() is:
+          // ```
+          // df: org.apache.spark.sql.DataFrame = []
+          // ```
+          //
+          // when sql content is DDL and tableWithUTFCharacter, message.getData() is:
+          // ```
+          // ++
+          // ||
+          // ++
+          // ++
+          // ```
+
           // convert Text type to Table type. We assume the text type must be the sql output. This
           // assumption is correct for now. Ideally livy should return table type. We may do it in
           // the future release of livy.
@@ -189,6 +199,10 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
               rows = parseSQLJsonOutput(message.getData());
             } else {
               rows = parseSQLOutput(message.getData());
+            }
+            if(rows.size() == 0){
+              result2.add(InterpreterResult.Type.TEXT,"success");
+              continue;
             }
             result2.add(InterpreterResult.Type.TABLE, StringUtils.join(rows, "\n"));
             if (rows.size() >= (maxResult + 1)) {
@@ -218,6 +232,9 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
   protected List<String> parseSQLJsonOutput(String output) {
     List<String> rows = new ArrayList<>();
     String[] rowsOutput = output.split("(?<!\\\\)\\n");
+    if(rowsOutput.length <= 1){
+      return rows;
+    }
     String[] header = rowsOutput[1].split("\t");
     List<String> cells = new ArrayList<>(Arrays.asList(header));
     rows.add(StringUtils.join(cells, "\t"));
