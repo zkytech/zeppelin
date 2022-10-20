@@ -260,9 +260,7 @@ public abstract class BaseLivyInterpreter extends Interpreter {
 
     String currUser = context.getLocalProperties().get("currUser");
     String roles = context.getLocalProperties().get("currRoles");
-    LOGGER.info("#########################");
-    LOGGER.info("currUser:" + currUser);
-    LOGGER.info("currRoles:" + roles);
+
     if(currUser == null){
       return st;
     }
@@ -314,9 +312,14 @@ public abstract class BaseLivyInterpreter extends Interpreter {
       }
       // check if this user can access current interpreter
       HashSet<String> owners = new HashSet<>(iSetting.option.owners);
+      LOGGER.info("#########################");
+      LOGGER.info("currUser:" + currUser);
+      LOGGER.info("currRoles:" + roles);
+      LOGGER.info("owners:" + owners);
       // if owners is empty, means all users can access
       if(!owners.isEmpty()){
-        if(!owners.retainAll(usersAndRoles)){
+        owners.retainAll(usersAndRoles);
+        if(owners.isEmpty()){
           // no user or roles match
           throw new InvalidCredentialsException(String.format(String.format("user %s has no privilege to access interpreter %s",currUser, interpreterId)));
         }

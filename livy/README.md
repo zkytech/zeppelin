@@ -1,6 +1,11 @@
 # Overview
 Livy interpreter for Apache Zeppelin
 
+# build example
+```bash
+mvn install -DskipTests -DskipRat -f pom.xml -Pspark-2.3 -Pscala-2.11 
+```
+
 # Prerequisities
 You can follow the instructions at [Livy Quick Start](http://livy.io/quickstart.html) to set up livy.
 
