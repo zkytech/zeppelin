@@ -350,7 +350,6 @@ public abstract class BaseLivyInterpreter extends Interpreter {
         String authDb = iSetting.getProp("mongo.server.authenticationDatabase","");
         password = URLEncoder.encode(password, StandardCharsets.UTF_8.name());
         String mongoUri = String.format("mongodb://%s:%s@%s:%s/%s.%s?authSource=%s",user,password,host,port,dbName,tableName,authDb);
-        LOGGER.info("##### mongoUri:" + mongoUri);
         code_to_exec = "import com.mongodb.spark.config._\n" +
                 "import com.mongodb.spark._\n" +
                 "import com.mongodb.spark.MongoSpark\n" +
