@@ -313,6 +313,7 @@ public abstract class BaseLivyInterpreter extends Interpreter {
       // check if this user can access current interpreter
       HashSet<String> owners = new HashSet<>(iSetting.option.owners);
       LOGGER.info("#########################");
+      LOGGER.info("iGroup:" + iSetting.group);
       LOGGER.info("currUser:" + currUser);
       LOGGER.info("currRoles:" + roles);
       LOGGER.info("owners:" + owners);
@@ -338,7 +339,7 @@ public abstract class BaseLivyInterpreter extends Interpreter {
                 "        properties.setProperty(\"user\", \""+user+"\")\n" +
                 "        properties.setProperty(\"password\", \""+password+"\")\n" +
                 "        properties.setProperty(\"driver\",\""+driver+"\")     \n" +
-                "spark.read.jdbc(\""+jdbcUrl+"\", \""+dbName + "." + tableName +"\",properties).registerTempTable(\""+newTableName+"\")\n" + st;
+                "spark.read.jdbc(\""+jdbcUrl+"\", \""+dbName + "." + tableName +"\",properties).registerTempTable(\""+newTableName+"\")\n";
 
       }
       else if (iGroup.equals("mongodb")){
@@ -349,16 +350,28 @@ public abstract class BaseLivyInterpreter extends Interpreter {
         String authDb = iSetting.getProp("mongo.server.authenticationDatabase","");
         password = URLEncoder.encode(password, StandardCharsets.UTF_8.name());
         String mongoUri = String.format("mongodb://%s:%s@%s:%s/%s.%s?authSource=%s",user,password,host,port,dbName,tableName,authDb);
+        LOGGER.info("##### mongoUri:" + mongoUri);
         code_to_exec = "import com.mongodb.spark.config._\n" +
+                "import com.mongodb.spark._\n" +
                 "import com.mongodb.spark.MongoSpark\n" +
-                "\n" +
-                "var readConfig = ReadConfig(\n" +
+                "import org.apache.spark.sql.types.{StringType, StructField, StructType}\n" +
+                "var df_result = spark.emptyDataFrame\n"+
+                "var mongo_conf = ReadConfig(\n" +
                 "    Map(\"collection\" -> \""+tableName+"\",\n" +
                 "        \"database\" -> \""+dbName+"\",\n" +
-                "        \"uri\" -> \""+mongoUri+"\"\n" +
+                "        \"uri\" -> \""+mongoUri+"\",\n" +
+                "        \"partitioner\" -> \"MongoPaginateBySizePartitioner\",\n" +
+                "        \"partitionSizeMB\" -> \"16\"" +
                 "        )\n" +
                 "    )\n" +
-                "MongoSpark.load(spark,readConfig).toDF.registerTempTable(\""+newTableName+"\")  " +
+                "val rdd = spark.sparkContext.loadFromMongoDB(mongo_conf)\n" +
+                "if (!rdd.isEmpty()) {\n" +
+                "    val schema = StructType(rdd.take(1).head.keySet().toArray.map(f => StructField(f.toString, StringType, nullable = true)))\n" +
+                "    df_result = rdd.toDF(schema).repartition(16)\n" +
+                "} else {\n" +
+                "    df_result = rdd.toDF()\n" +
+                "}\n" +
+                "df_result.registerTempTable(\""+newTableName+"\")  " +
                 "\n"
 
         ;
@@ -450,6 +463,7 @@ public abstract class BaseLivyInterpreter extends Interpreter {
       st = st.replaceAll(interpreterId+"\\."+dbName+"\\."+tableName,newTableName);
       LOGGER.info("finished inject :" + interpreterId);
       if (sharedInterpreter != null && sharedInterpreter.isSupported()) {
+        LOGGER.info("injecting code to shared interpreter: \n" + code_to_exec);
         sharedInterpreter.interpret(code_to_exec, getCodeType(), context);
         continue;
       }
