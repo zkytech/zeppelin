@@ -21,11 +21,7 @@
     <parent>
         <artifactId>flink-parent</artifactId>
         <groupId>org.apache.zeppelin</groupId>
-<<<<<<<< HEAD:flink/flink1.12-shims/pom.xml
-        <version>0.10.1</version>
-========
         <version>0.11.0-SNAPSHOT</version>
->>>>>>>> origin/master:flink/flink1.14-shims/pom.xml
         <relativePath>../pom.xml</relativePath>
     </parent>
 
