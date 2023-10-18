@@ -19,11 +19,11 @@ limitations under the License.
 -->
 {% include JB/setup %}
 
-# Zeppelin on Yarn
+# Zeppelin Interpreter on Yarn
 
 <div id="toc"></div>
 
-Zeppelin on yarn means to run interpreter process in yarn container. The key benefit is the scalability, you won't run out of memory
+Zeppelin is able to run interpreter process in yarn container. The key benefit is the scalability, you won't run out of memory
 of the zeppelin server host if you run large amount of interpreter processes.
 
 ## Prerequisites
@@ -63,6 +63,11 @@ Besides that, you can also specify other properties as following table.
     <td>zeppelin.interpreter.yarn.queue</td>
     <td>default</td>
     <td>yarn queue name</td>
+  </tr>
+  <tr>
+    <td>zeppelin.interpreter.yarn.node.label.expression</td>
+    <td></td>
+    <td>yarn node label expression specified for interpreter process</td>
   </tr>
 </table>
 

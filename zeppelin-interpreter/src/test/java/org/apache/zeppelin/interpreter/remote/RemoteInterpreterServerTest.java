@@ -25,24 +25,29 @@ import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.LazyOpenInterpreter;
 import org.apache.zeppelin.interpreter.thrift.RemoteInterpreterContext;
 import org.apache.zeppelin.interpreter.thrift.RemoteInterpreterResult;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
-public class RemoteInterpreterServerTest {
+class RemoteInterpreterServerTest {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(RemoteInterpreterServerTest.class);
 
   @Test
-  public void testStartStop() throws Exception {
+  void testStartStop() throws Exception {
     RemoteInterpreterServer server = new RemoteInterpreterServer("localhost",
         RemoteInterpreterUtils.findRandomAvailablePortOnAllLocalInterfaces(), ":", "groupId", true);
 
@@ -51,7 +56,7 @@ public class RemoteInterpreterServerTest {
   }
 
   @Test
-  public void testStartStopWithQueuedEvents() throws Exception {
+  void testStartStopWithQueuedEvents() throws Exception {
     RemoteInterpreterServer server = new RemoteInterpreterServer("localhost",
         RemoteInterpreterUtils.findRandomAvailablePortOnAllLocalInterfaces(), ":", "groupId", true);
     server.intpEventClient = mock(RemoteInterpreterEventClient.class);
@@ -98,7 +103,7 @@ public class RemoteInterpreterServerTest {
   }
 
   @Test
-  public void testInterpreter() throws Exception {
+  void testInterpreter() throws Exception {
     final RemoteInterpreterServer server = new RemoteInterpreterServer("localhost",
         RemoteInterpreterUtils.findRandomAvailablePortOnAllLocalInterfaces(), ":", "groupId", true);
     server.init(new HashMap<>());
@@ -119,8 +124,13 @@ public class RemoteInterpreterServerTest {
     assertEquals(2, interpreter1.getProperties().size());
     assertEquals("value_1", interpreter1.getProperty("property_1"));
 
-    // create Test2Interpreter in session_1
+    // create duplicated Test1Interpreter in session_1
     server.createInterpreter("group_1", "session_1", Test1Interpreter.class.getName(),
+            intpProperties, "user_1");
+    assertEquals(1, server.getInterpreterGroup().get("session_1").size());
+
+    // create Test2Interpreter in session_1
+    server.createInterpreter("group_1", "session_1", Test2Interpreter.class.getName(),
         intpProperties, "user_1");
     assertEquals(2, server.getInterpreterGroup().get("session_1").size());
 
@@ -188,9 +198,33 @@ public class RemoteInterpreterServerTest {
     assertEquals(10, server.getProgress("session_1", Test1Interpreter.class.getName(),
         intpContext));
 
-    // close
+    // before close -> thread of Test1Interpreter is running
+    assertEquals(true, isThreadRunning(interpreter1.getScheduler().getName()));
+
+    // close opened Test1Interpreter -> remove from interpreterGroup
     server.close("session_1", Test1Interpreter.class.getName());
     assertTrue(interpreter1.closed.get());
+    assertEquals(1, server.getInterpreterGroup().get("session_1").size());
+
+    // close unopened Test2Interpreter -> keep in interpreterGroup
+    server.close("session_1", Test2Interpreter.class.getName());
+    assertEquals(1, server.getInterpreterGroup().get("session_1").size());
+
+    // // Close is async process
+    Thread.sleep(100);
+    // after close -> thread of Test1Interpreter is not running
+    assertEquals(false, isThreadRunning(interpreter1.getScheduler().getName()));
+  }
+
+  private boolean isThreadRunning(String schedulerName) {
+    boolean res = false;
+    Set<Thread> threads = Thread.getAllStackTraces().keySet();
+    for (Thread t : threads) {
+      if (!t.getName().contains(schedulerName)) continue;
+      res = true;
+      break;
+    }
+    return res;
   }
 
   public static class Test1Interpreter extends Interpreter {
@@ -217,14 +251,18 @@ public class RemoteInterpreterServerTest {
         try {
           context.out.write("INTERPRETER_OUT");
         } catch (IOException e) {
-          e.printStackTrace();
+          LOGGER.error("IO Error", e);
         }
         return new InterpreterResult(InterpreterResult.Code.SUCCESS, "SINGLE_OUTPUT_SUCCESS");
       } else if (st.equals("SLEEP")) {
-        try {
-          Thread.sleep(3 * 1000);
-        } catch (InterruptedException e) {
-          e.printStackTrace();
+        int count = 0;
+        while (!cancelled.get() || count > 30) {
+          try {
+            Thread.sleep(100);
+          } catch (InterruptedException e) {
+            return new InterpreterResult(InterpreterResult.Code.ERROR, "SLEEP_SUCCESS");
+          }
+          ++count;
         }
         return new InterpreterResult(InterpreterResult.Code.SUCCESS, "SLEEP_SUCCESS");
       }

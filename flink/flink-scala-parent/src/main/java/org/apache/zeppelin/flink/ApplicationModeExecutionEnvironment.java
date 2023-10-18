@@ -67,6 +67,12 @@ public class ApplicationModeExecutionEnvironment extends ExecutionEnvironment {
     return super.execute();
   }
 
+  @Override
+  public JobExecutionResult execute(String jobName) throws Exception {
+    updateDependencies();
+    return super.execute(jobName);
+  }
+
   private void updateDependencies() throws Exception {
     final Configuration configuration = getConfiguration();
     checkState(

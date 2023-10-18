@@ -26,29 +26,29 @@ import org.apache.zeppelin.interpreter.InterpreterOutput;
 import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.LazyOpenInterpreter;
 import org.apache.zeppelin.interpreter.remote.RemoteInterpreterEventClient;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-public class SparkRInterpreterTest {
+class SparkRInterpreterTest {
 
   private SparkRInterpreter sparkRInterpreter;
   private SparkInterpreter sparkInterpreter;
   private RemoteInterpreterEventClient mockRemoteIntpEventClient = mock(RemoteInterpreterEventClient.class);
 
-  @Before
+  @BeforeEach
   public void setUp() throws InterpreterException {
     Properties properties = new Properties();
     properties.setProperty(SparkStringConstants.MASTER_PROP_NAME, "local");
@@ -57,6 +57,7 @@ public class SparkRInterpreterTest {
     properties.setProperty("zeppelin.R.knitr", "true");
     properties.setProperty("spark.r.backendConnectionTimeout", "10");
     properties.setProperty("zeppelin.spark.deprecatedMsg.show", "false");
+    properties.setProperty("spark.sql.execution.arrow.sparkr.enabled", "false");
 
     InterpreterContext context = getInterpreterContext();
     InterpreterContext.set(context);
@@ -72,61 +73,53 @@ public class SparkRInterpreterTest {
     sparkRInterpreter.open();
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws InterpreterException {
     sparkInterpreter.close();
   }
 
   @Test
-  public void testSparkRInterpreter() throws InterpreterException, InterruptedException {
+  void testSparkRInterpreter() throws InterpreterException, InterruptedException {
     InterpreterResult result = sparkRInterpreter.interpret("1+1", getInterpreterContext());
     assertEquals(InterpreterResult.Code.SUCCESS, result.code());
     assertTrue(result.message().get(0).getData().contains("2"));
 
     result = sparkRInterpreter.interpret("sparkR.version()", getInterpreterContext());
     assertEquals(InterpreterResult.Code.SUCCESS, result.code());
-    if (sparkRInterpreter.isSpark1()) {
-      // spark 1.x
-      result = sparkRInterpreter.interpret("df <- createDataFrame(sqlContext, faithful)\nhead(df)", getInterpreterContext());
-      assertEquals(InterpreterResult.Code.SUCCESS, result.code());
-      assertTrue(result.message().get(0).getData().contains("eruptions waiting"));
-      // spark job url is sent
-      verify(mockRemoteIntpEventClient, atLeastOnce()).onParaInfosReceived(any(Map.class));
-    } else {
-      // spark 2.x or 3.x
-      result = sparkRInterpreter.interpret("df <- as.DataFrame(faithful)\nhead(df)", getInterpreterContext());
-      assertEquals(InterpreterResult.Code.SUCCESS, result.code());
-      assertTrue(result.message().get(0).getData().contains("eruptions waiting"));
-      // spark job url is sent
-      verify(mockRemoteIntpEventClient, atLeastOnce()).onParaInfosReceived(any(Map.class));
 
-      // cancel
-      final InterpreterContext context = getInterpreterContext();
-      Thread thread = new Thread() {
-        @Override
-        public void run() {
-          try {
-            InterpreterResult result = sparkRInterpreter.interpret("ldf <- dapplyCollect(\n" +
-                    "         df,\n" +
-                    "         function(x) {\n" +
-                    "           Sys.sleep(3)\n" +
-                    "           x <- cbind(x, \"waiting_secs\" = x$waiting * 60)\n" +
-                    "         })\n" +
-                    "head(ldf, 3)", context);
-            assertTrue(result.message().get(0).getData().contains("cancelled"));
-          } catch (InterpreterException e) {
-            fail("Should not throw InterpreterException");
-          }
+    result = sparkRInterpreter.interpret("df <- as.DataFrame(faithful)\nhead(df)", getInterpreterContext());
+    assertEquals(InterpreterResult.Code.SUCCESS, result.code());
+    assertTrue(result.message().get(0).getData().contains("eruptions waiting"), result.toString());
+    // spark job url is sent
+    verify(mockRemoteIntpEventClient, atLeastOnce()).onParaInfosReceived(any(Map.class));
+
+    // cancel
+    InterpreterContext context = getInterpreterContext();
+    InterpreterContext finalContext = context;
+    Thread thread = new Thread() {
+      @Override
+      public void run() {
+        try {
+          InterpreterResult result = sparkRInterpreter.interpret("ldf <- dapplyCollect(\n" +
+                  "         df,\n" +
+                  "         function(x) {\n" +
+                  "           Sys.sleep(3)\n" +
+                  "           x <- cbind(x, \"waiting_secs\" = x$waiting * 60)\n" +
+                  "         })\n" +
+                  "head(ldf, 3)", finalContext);
+          assertTrue(result.message().get(0).getData().contains("cancelled"));
+        } catch (InterpreterException e) {
+          fail("Should not throw InterpreterException");
         }
-      };
-      thread.setName("Cancel-Thread");
-      thread.start();
-      Thread.sleep(1000);
-      sparkRInterpreter.cancel(context);
-    }
+      }
+    };
+    thread.setName("Cancel-Thread");
+    thread.start();
+    Thread.sleep(1000);
+    sparkRInterpreter.cancel(context);
 
     // plotting
-    InterpreterContext context = getInterpreterContext();
+    context = getInterpreterContext();
     context.getLocalProperties().put("imageWidth", "100");
     result = sparkRInterpreter.interpret("hist(mtcars$mpg)", context);
     assertEquals(InterpreterResult.Code.SUCCESS, result.code());
@@ -150,7 +143,7 @@ public class SparkRInterpreterTest {
   }
 
   @Test
-  public void testInvalidR() throws InterpreterException {
+  void testInvalidR() throws InterpreterException {
     tearDown();
 
     Properties properties = new Properties();
@@ -174,7 +167,7 @@ public class SparkRInterpreterTest {
       fail("Should fail to open SparkRInterpreter");
     } catch (InterpreterException e) {
       String stacktrace = ExceptionUtils.getStackTrace(e);
-      assertTrue(stacktrace, stacktrace.contains("No such file or directory"));
+      assertTrue(stacktrace.contains("No such file or directory"), stacktrace);
     }
   }
 

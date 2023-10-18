@@ -22,7 +22,7 @@
   <parent>
     <artifactId>zeppelin-interpreter-parent</artifactId>
     <groupId>org.apache.zeppelin</groupId>
-    <version>0.10.1</version>
+    <version>0.11.0-SNAPSHOT</version>
     <relativePath>../zeppelin-interpreter-parent/pom.xml</relativePath>
   </parent>
 
@@ -34,7 +34,7 @@
     <!--library versions-->
     <interpreter.name>submarine</interpreter.name>
     <hadoop.version>${hadoop2.7.version}</hadoop.version>
-    <jinjava.version>2.4.0</jinjava.version>
+    <jinjava.version>2.5.4</jinjava.version>
     <squirrel.version>0.3.8</squirrel.version>
     <guava.version>24.1.1-jre</guava.version>
     <!--test library versions-->
@@ -53,7 +53,7 @@
     <dependency>
       <groupId>org.apache.zeppelin</groupId>
       <artifactId>zeppelin-python</artifactId>
-      <version>0.10.1</version>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.zeppelin</groupId>
@@ -69,7 +69,7 @@
     <dependency>
       <groupId>org.apache.zeppelin</groupId>
       <artifactId>zeppelin-shell</artifactId>
-      <version>0.10.1</version>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.hamcrest</groupId>
@@ -141,6 +141,11 @@
       <artifactId>mockito-core</artifactId>
       <scope>test</scope>
     </dependency>
+      <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter-params</artifactId>
+        <scope>test</scope>
+      </dependency>
   </dependencies>
 
   <build>
@@ -165,9 +170,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <configuration>
-          <skip>false</skip>
-        </configuration>
       </plugin>
     </plugins>
   </build>

@@ -29,6 +29,14 @@ import java.util.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.util.SqlSplitter;
+import org.apache.zeppelin.interpreter.InterpreterContext;
+import org.apache.zeppelin.interpreter.InterpreterException;
+import org.apache.zeppelin.interpreter.InterpreterOutput;
+import org.apache.zeppelin.interpreter.InterpreterResult;
+import org.apache.zeppelin.interpreter.InterpreterResultMessage;
+import org.apache.zeppelin.interpreter.InterpreterUtils;
+import org.apache.zeppelin.interpreter.ResultMessages;
+import org.apache.zeppelin.interpreter.util.SqlSplitter;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
 
@@ -111,35 +119,32 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
   }
 
   @Override
-  public InterpreterResult interpret(String line, InterpreterContext context) {
+  public InterpreterResult interpret(String text, InterpreterContext context) {
     String appInfoHtml = "";
-    List<String> sqlQueries = sqlSplitter.splitSql(line);
+    List<String> sqlQueries = sqlSplitter.splitSql(text);
     for (String query:sqlQueries) {
       try {
-        InterpreterResult res = interpret_(query, context);
-        for(InterpreterResultMessage msg: res.message()){
-          if (this.displayAppInfo){
-            if (msg.getData().startsWith("<hr/>Spark Application Id: ")){
-              appInfoHtml = msg.toString();
-              continue;
-            }
+        InterpreterResult res = interpretSql(query, context);
+        for (InterpreterResultMessage msg: res.message()){
+          if (this.displayAppInfo && msg.getData().startsWith("<hr/>Spark Application Id: ")){
+            appInfoHtml = msg.toString();
+            continue;
           }
           context.out.write(msg.toString());
           context.out.write("\n");
           context.out.flush();
         }
-      }catch (Exception e){
-        LOGGER.error(e.getMessage());
+      } catch (Exception e){
         LOGGER.error(e.toString());
         e.printStackTrace();
       }
     }
 
-    if(this.displayAppInfo){
+    if (this.displayAppInfo){
       try {
         context.out.write(appInfoHtml);
         context.out.flush();
-      }catch (Exception e){
+      } catch (Exception e){
         LOGGER.error(e.getMessage());
         e.printStackTrace();
       }
@@ -148,7 +153,7 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
     return new InterpreterResult(InterpreterResult.Code.SUCCESS);
   }
 
-  public InterpreterResult interpret_(String line, InterpreterContext context) {
+  public InterpreterResult interpretSql(String line, InterpreterContext context) {
     try {
       if (StringUtils.isEmpty(line)) {
         return new InterpreterResult(InterpreterResult.Code.SUCCESS, "");
@@ -200,8 +205,9 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
             } else {
               rows = parseSQLOutput(message.getData());
             }
-            if(rows.size() == 0){
-              result2.add(InterpreterResult.Type.TEXT,"success");
+            // ddl statement will result in empty table without header
+            if (rows.size() == 0){
+              result2.add(InterpreterResult.Type.TEXT, "success");
               continue;
             }
             result2.add(InterpreterResult.Type.TABLE, StringUtils.join(rows, "\n"));
@@ -231,8 +237,11 @@ public class LivySparkSQLInterpreter extends BaseLivyInterpreter {
 
   protected List<String> parseSQLJsonOutput(String output) {
     List<String> rows = new ArrayList<>();
+
     String[] rowsOutput = output.split("(?<!\\\\)\\n");
-    if(rowsOutput.length <= 1){
+    if (rowsOutput.length <= 1){
+      // message.getData() for DDL statement is only 1 line :
+      // "df: org.apache.spark.sql.DataFrame = []"
       return rows;
     }
     String[] header = rowsOutput[1].split("\t");

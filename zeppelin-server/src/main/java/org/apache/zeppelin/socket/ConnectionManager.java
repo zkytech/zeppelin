@@ -20,6 +20,10 @@ package org.apache.zeppelin.socket;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.display.GUI;
@@ -33,7 +37,6 @@ import org.apache.zeppelin.common.Message;
 import org.apache.zeppelin.notebook.socket.WatcherMessage;
 import org.apache.zeppelin.user.AuthenticationInfo;
 import org.apache.zeppelin.util.WatcherSecurityKey;
-import org.eclipse.jetty.websocket.api.WebSocketException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,9 +47,10 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -63,21 +67,21 @@ public class ConnectionManager {
       .setPrettyPrinting()
       .registerTypeAdapterFactory(Input.TypeAdapterFactory).create();
 
-  final Queue<NotebookSocket> connectedSockets = new ConcurrentLinkedQueue<>();
+  final Queue<NotebookSocket> connectedSockets = Metrics.gaugeCollectionSize("zeppelin_connected_sockets", Tags.empty(), new ConcurrentLinkedQueue<>());
   // noteId -> connection
-  final Map<String, List<NotebookSocket>> noteSocketMap = new HashMap<>();
+  final Map<String, Set<NotebookSocket>> noteSocketMap = Metrics.gaugeMapSize("zeppelin_note_sockets", Tags.empty(), new HashMap<>());
   // user -> connection
-  final Map<String, Queue<NotebookSocket>> userSocketMap = new HashMap<>();
+  final Map<String, Queue<NotebookSocket>> userSocketMap = Metrics.gaugeMapSize("zeppelin_user_sockets", Tags.empty(), new HashMap<>());
 
   /**
-   * This is a special endpoint in the notebook websoket, Every connection in this Queue
+   * This is a special endpoint in the notebook websocket, Every connection in this Queue
    * will be able to watch every websocket event, it doesnt need to be listed into the map of
    * noteSocketMap. This can be used to get information about websocket traffic and watch what
    * is going on.
    */
   final Queue<NotebookSocket> watcherSockets = new ConcurrentLinkedQueue<>();
 
-  private final HashSet<String> collaborativeModeList = new HashSet<>();
+  private final HashSet<String> collaborativeModeList = Metrics.gaugeCollectionSize("zeppelin_collaborative_modes", Tags.empty(),new HashSet<>());
   private final Boolean collaborativeModeEnable = ZeppelinConfiguration
       .create()
       .isZeppelinNotebookCollaborativeModeEnable();
@@ -103,11 +107,9 @@ public class ConnectionManager {
     synchronized (noteSocketMap) {
       // make sure a socket relates only an single note.
       removeConnectionFromAllNote(socket);
-      List<NotebookSocket> socketList = noteSocketMap.computeIfAbsent(noteId, k -> new LinkedList<>());
-      if (!socketList.contains(socket)) {
-        socketList.add(socket);
-      }
-      checkCollaborativeStatus(noteId, socketList);
+      Set<NotebookSocket> sockets = noteSocketMap.computeIfAbsent(noteId, k -> new HashSet<>());
+      sockets.add(socket);
+      checkCollaborativeStatus(noteId, sockets);
     }
   }
 
@@ -120,11 +122,33 @@ public class ConnectionManager {
   public void removeNoteConnection(String noteId, NotebookSocket socket) {
     LOGGER.debug("Remove connection {} from note: {}", socket, noteId);
     synchronized (noteSocketMap) {
-      List<NotebookSocket> socketList = noteSocketMap.get(noteId);
-      if (socketList != null) {
-        socketList.remove(socket);
+      Set<NotebookSocket> sockets = noteSocketMap.getOrDefault(noteId, Collections.emptySet());
+      removeNoteConnection(noteId, sockets, socket);
+      // Remove empty socket collection from map
+      if (sockets.isEmpty()) {
+        noteSocketMap.remove(noteId);
       }
-      checkCollaborativeStatus(noteId, socketList);
+    }
+  }
+
+  private void removeNoteConnection(String noteId, Set<NotebookSocket> sockets,
+    NotebookSocket socket) {
+    sockets.remove(socket);
+    checkCollaborativeStatus(noteId, sockets);
+  }
+
+  public void removeConnectionFromAllNote(NotebookSocket socket) {
+    LOGGER.debug("Remove connection {} from all notes", socket);
+    synchronized (noteSocketMap) {
+      Iterator<Entry<String, Set<NotebookSocket>>> iterator = noteSocketMap.entrySet().iterator();
+      while (iterator.hasNext()) {
+        Entry<String, Set<NotebookSocket>> noteSocketMapEntry = iterator.next();
+        removeNoteConnection(noteSocketMapEntry.getKey(), noteSocketMapEntry.getValue(), socket);
+        // Remove empty socket collection from map
+        if (noteSocketMapEntry.getValue().isEmpty()) {
+          iterator.remove();
+        }
+      }
     }
   }
 
@@ -143,7 +167,11 @@ public class ConnectionManager {
   public void removeUserConnection(String user, NotebookSocket conn) {
     LOGGER.debug("Remove user connection {} for user: {}", conn, user);
     if (userSocketMap.containsKey(user)) {
-      userSocketMap.get(user).remove(conn);
+      Queue<NotebookSocket> connections = userSocketMap.get(user);
+      connections.remove(conn);
+      if (connections.isEmpty()) {
+        userSocketMap.remove(user);
+      }
     } else {
       LOGGER.warn("Closing connection that is absent in user connections");
     }
@@ -152,11 +180,9 @@ public class ConnectionManager {
   public String getAssociatedNoteId(NotebookSocket socket) {
     String associatedNoteId = null;
     synchronized (noteSocketMap) {
-      Set<String> noteIds = noteSocketMap.keySet();
-      for (String noteId : noteIds) {
-        List<NotebookSocket> sockets = noteSocketMap.get(noteId);
-        if (sockets.contains(socket)) {
-          associatedNoteId = noteId;
+      for (Entry<String, Set<NotebookSocket>> noteSocketMapEntry : noteSocketMap.entrySet()) {
+        if (noteSocketMapEntry.getValue().contains(socket)) {
+          associatedNoteId = noteSocketMapEntry.getKey();
         }
       }
     }
@@ -164,28 +190,8 @@ public class ConnectionManager {
     return associatedNoteId;
   }
 
-  public void removeConnectionFromAllNote(NotebookSocket socket) {
-    synchronized (noteSocketMap) {
-      Set<String> noteIds = noteSocketMap.keySet();
-      for (String noteId : noteIds) {
-        removeConnectionFromNote(noteId, socket);
-      }
-    }
-  }
-
-  private void removeConnectionFromNote(String noteId, NotebookSocket socket) {
-    LOGGER.debug("Remove connection {} from note: {}", socket, noteId);
-    synchronized (noteSocketMap) {
-      List<NotebookSocket> socketList = noteSocketMap.get(noteId);
-      if (socketList != null) {
-        socketList.remove(socket);
-      }
-      checkCollaborativeStatus(noteId, socketList);
-    }
-  }
-
-  private void checkCollaborativeStatus(String noteId, List<NotebookSocket> socketList) {
-    if (!collaborativeModeEnable) {
+  private void checkCollaborativeStatus(String noteId, Set<NotebookSocket> socketList) {
+    if (!collaborativeModeEnable.booleanValue()) {
       return;
     }
     boolean collaborativeStatusNew = socketList.size() > 1;
@@ -217,28 +223,28 @@ public class ConnectionManager {
       for (NotebookSocket ns : connectedSockets) {
         try {
           ns.send(serializeMessage(m));
-        } catch (IOException | WebSocketException e) {
-          LOGGER.error("Send error: " + m, e);
+        } catch (IOException | RuntimeException e) {
+          LOGGER.error("Send error: {}", m, e);
         }
       }
     }
   }
 
   public void broadcast(String noteId, Message m) {
-    List<NotebookSocket> socketsToBroadcast = Collections.emptyList();
+    List<NotebookSocket> socketsToBroadcast;
     synchronized (noteSocketMap) {
       broadcastToWatchers(noteId, StringUtils.EMPTY, m);
-      List<NotebookSocket> socketLists = noteSocketMap.get(noteId);
-      if (socketLists == null || socketLists.size() == 0) {
+      Set<NotebookSocket> sockets = noteSocketMap.get(noteId);
+      if (sockets == null || sockets.isEmpty()) {
         return;
       }
-      socketsToBroadcast = new ArrayList<>(socketLists);
+      socketsToBroadcast = new ArrayList<>(sockets);
     }
-    LOGGER.debug("SEND >> " + m);
+    LOGGER.debug("SEND >> {}", m);
     for (NotebookSocket conn : socketsToBroadcast) {
       try {
         conn.send(serializeMessage(m));
-      } catch (IOException | WebSocketException e) {
+      } catch (IOException | RuntimeException e) {
         LOGGER.error("socket error", e);
       }
     }
@@ -254,7 +260,7 @@ public class ConnectionManager {
                   .message(serializeMessage(message))
                   .build()
                   .toJson());
-        } catch (IOException | WebSocketException e) {
+        } catch (IOException | RuntimeException e) {
           LOGGER.error("Cannot broadcast message to watcher", e);
         }
       }
@@ -262,24 +268,24 @@ public class ConnectionManager {
   }
 
   public void broadcastExcept(String noteId, Message m, NotebookSocket exclude) {
-    List<NotebookSocket> socketsToBroadcast = Collections.emptyList();
+    List<NotebookSocket> socketsToBroadcast;
     synchronized (noteSocketMap) {
       broadcastToWatchers(noteId, StringUtils.EMPTY, m);
-      List<NotebookSocket> socketLists = noteSocketMap.get(noteId);
-      if (socketLists == null || socketLists.size() == 0) {
+      Set<NotebookSocket> socketSet = noteSocketMap.get(noteId);
+      if (socketSet == null || socketSet.isEmpty()) {
         return;
       }
-      socketsToBroadcast = new ArrayList<>(socketLists);
+      socketsToBroadcast = new ArrayList<>(socketSet);
     }
 
-    LOGGER.debug("SEND >> " + m);
+    LOGGER.debug("SEND >> {}", m);
     for (NotebookSocket conn : socketsToBroadcast) {
       if (exclude.equals(conn)) {
         continue;
       }
       try {
         conn.send(serializeMessage(m));
-      } catch (IOException | WebSocketException e) {
+      } catch (IOException | RuntimeException e) {
         LOGGER.error("socket error", e);
       }
     }
@@ -301,7 +307,7 @@ public class ConnectionManager {
 
         try {
           conn.send(serializedMsg);
-        } catch (IOException | WebSocketException e) {
+        } catch (IOException | RuntimeException e) {
           LOGGER.error("Cannot broadcast message to conn", e);
         }
       }
@@ -331,7 +337,7 @@ public class ConnectionManager {
   public void unicast(Message m, NotebookSocket conn) {
     try {
       conn.send(serializeMessage(m));
-    } catch (IOException | WebSocketException e) {
+    } catch (IOException | RuntimeException e) {
       LOGGER.error("socket error", e);
     }
     broadcastToWatchers(StringUtils.EMPTY, StringUtils.EMPTY, m);
@@ -397,32 +403,12 @@ public class ConnectionManager {
 
   public void broadcastParagraphs(Map<String, Paragraph> userParagraphMap) {
     if (null != userParagraphMap) {
-      for (String user : userParagraphMap.keySet()) {
-        multicastToUser(user,
-            new Message(Message.OP.PARAGRAPH).put("paragraph", userParagraphMap.get(user)));
+      for (Entry<String, Paragraph> userParagraphEntry : userParagraphMap.entrySet()) {
+        multicastToUser(userParagraphEntry.getKey(),
+            new Message(Message.OP.PARAGRAPH).put("paragraph", userParagraphEntry.getValue()));
       }
     }
   }
-
-  private void broadcastNewParagraph(Note note, Paragraph para) {
-    LOGGER.info("Broadcasting paragraph on run call instead of note.");
-    int paraIndex = note.getParagraphs().indexOf(para);
-    broadcast(note.getId(),
-        new Message(Message.OP.PARAGRAPH_ADDED).put("paragraph", para).put("index", paraIndex));
-  }
-
-  //  public void broadcastNoteList(AuthenticationInfo subject, Set<String> userAndRoles) {
-  //    if (subject == null) {
-  //      subject = new AuthenticationInfo(StringUtils.EMPTY);
-  //    }
-  //    //send first to requesting user
-  //    List<Map<String, String>> notesInfo = generateNotesInfo(false, subject, userAndRoles);
-  //    multicastToUser(subject.getUser(), new Message(Message.OP.NOTES_INFO)
-  // .put("notes", notesInfo));
-  //    //to others afterwards
-  //    broadcastNoteListExcept(notesInfo, subject);
-  //  }
-
 
   private void broadcastNoteForms(Note note) {
     GUI formsSettings = new GUI();
@@ -451,8 +437,8 @@ public class ConnectionManager {
     removeUserConnection(conn.getUser(), conn);
   }
 
-  private boolean isSessionAllowedToSwitchToWatcher(NotebookSocket session) {
-    String watcherSecurityKey = session.getRequest().getHeader(WatcherSecurityKey.HTTP_HEADER);
+  private boolean isSessionAllowedToSwitchToWatcher(NotebookSocket notebookSocket) {
+    String watcherSecurityKey = notebookSocket.getHeader(WatcherSecurityKey.HTTP_HEADER);
     return !(StringUtils.isBlank(watcherSecurityKey) || !watcherSecurityKey
         .equals(WatcherSecurityKey.getKey()));
   }

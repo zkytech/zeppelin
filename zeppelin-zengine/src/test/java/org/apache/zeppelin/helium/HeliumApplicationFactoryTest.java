@@ -16,15 +16,15 @@
  */
 package org.apache.zeppelin.helium;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 import java.util.ArrayList;
 
+import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.interpreter.AbstractInterpreterTest;
-import org.apache.zeppelin.interpreter.Interpreter;
 import org.apache.zeppelin.interpreter.InterpreterException;
 import org.apache.zeppelin.interpreter.InterpreterNotFoundException;
 import org.apache.zeppelin.interpreter.InterpreterSetting;
@@ -35,13 +35,12 @@ import org.apache.zeppelin.notebook.NoteManager;
 import org.apache.zeppelin.notebook.Notebook;
 import org.apache.zeppelin.notebook.Paragraph;
 import org.apache.zeppelin.notebook.repo.NotebookRepo;
-import org.apache.zeppelin.search.SearchService;
 import org.apache.zeppelin.user.AuthenticationInfo;
 import org.apache.zeppelin.user.Credentials;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 public class HeliumApplicationFactoryTest extends AbstractInterpreterTest {
 
@@ -51,7 +50,7 @@ public class HeliumApplicationFactoryTest extends AbstractInterpreterTest {
   private AuthenticationInfo anonymous;
 
   @Override
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     super.setUp();
 
@@ -60,7 +59,6 @@ public class HeliumApplicationFactoryTest extends AbstractInterpreterTest {
       interpreterSetting.setAppEventListener(heliumAppFactory);
     }
 
-    SearchService search = mock(SearchService.class);
     AuthorizationService authorizationService = mock(AuthorizationService.class);
     notebookRepo = mock(NotebookRepo.class);
     notebook =
@@ -68,10 +66,9 @@ public class HeliumApplicationFactoryTest extends AbstractInterpreterTest {
             conf,
             authorizationService,
             notebookRepo,
-            new NoteManager(notebookRepo),
+            new NoteManager(notebookRepo, ZeppelinConfiguration.create()),
             interpreterFactory,
             interpreterSettingManager,
-            search,
             new Credentials());
 
     heliumAppFactory = new HeliumApplicationFactory(notebook, null);
@@ -82,14 +79,14 @@ public class HeliumApplicationFactoryTest extends AbstractInterpreterTest {
   }
 
   @Override
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     super.tearDown();
   }
 
 
   @Test
-  @Ignore
+  @Disabled
   public void testLoadRunUnloadApplication()
       throws IOException, ApplicationException, InterruptedException {
     // given
@@ -101,14 +98,17 @@ public class HeliumApplicationFactoryTest extends AbstractInterpreterTest {
         new String[][]{},
         "", "");
 
-    Note note1 = notebook.createNote("note1", anonymous);
-
+    String note1Id = notebook.createNote("note1", anonymous);
+    Note note1 = notebook.processNote(note1Id,
+      note1Tmp -> {
+        return note1Tmp;
+      });
     Paragraph p1 = note1.addNewParagraph(AuthenticationInfo.ANONYMOUS);
-
     // make sure interpreter process running
     p1.setText("%mock1 job");
     p1.setAuthenticationInfo(anonymous);
     note1.run(p1.getId());
+
     while(p1.isTerminated()==false || p1.getReturn()==null) Thread.yield();
 
     assertEquals("repl1: job", p1.getReturn().message().get(0).getData());
@@ -132,11 +132,11 @@ public class HeliumApplicationFactoryTest extends AbstractInterpreterTest {
 
     // clean
     heliumAppFactory.unload(p1, appId);
-    notebook.removeNote(note1, anonymous);
+    notebook.removeNote(note1.getId(), anonymous);
   }
 
   @Test
-  @Ignore
+  @Disabled
   public void testUnloadOnParagraphRemove() throws IOException {
     // given
     HeliumPackage pkg1 = new HeliumPackage(HeliumType.APPLICATION,
@@ -147,7 +147,11 @@ public class HeliumApplicationFactoryTest extends AbstractInterpreterTest {
         new String[][]{},
         "", "");
 
-    Note note1 = notebook.createNote("note1", anonymous);
+    String note1Id = notebook.createNote("note1", anonymous);
+    Note note1 = notebook.processNote(note1Id,
+      note1Tmp -> {
+        return note1Tmp;
+      });
     Paragraph p1 = note1.addNewParagraph(AuthenticationInfo.ANONYMOUS);
 
     // make sure interpreter process running
@@ -170,12 +174,12 @@ public class HeliumApplicationFactoryTest extends AbstractInterpreterTest {
     assertEquals(ApplicationState.Status.UNLOADED, app.getStatus());
 
     // clean
-    notebook.removeNote(note1, anonymous);
+    notebook.removeNote(note1.getId(), anonymous);
   }
 
 
   @Test
-  @Ignore
+  @Disabled
   public void testUnloadOnInterpreterUnbind() throws IOException {
     // given
     HeliumPackage pkg1 = new HeliumPackage(HeliumType.APPLICATION,
@@ -186,7 +190,11 @@ public class HeliumApplicationFactoryTest extends AbstractInterpreterTest {
         new String[][]{},
         "", "");
 
-    Note note1 = notebook.createNote("note1", anonymous);
+    String note1Id = notebook.createNote("note1", anonymous);
+    Note note1 = notebook.processNote(note1Id,
+      note1Tmp -> {
+        return note1Tmp;
+      });
 
     Paragraph p1 = note1.addNewParagraph(AuthenticationInfo.ANONYMOUS);
 
@@ -207,14 +215,18 @@ public class HeliumApplicationFactoryTest extends AbstractInterpreterTest {
     assertEquals(ApplicationState.Status.UNLOADED, app.getStatus());
 
     // clean
-    notebook.removeNote(note1, anonymous);
+    notebook.removeNote(note1.getId(), anonymous);
   }
 
   @Test
-  @Ignore
+  @Disabled
   public void testInterpreterUnbindOfNullReplParagraph() throws IOException {
     // create note
-    Note note1 = notebook.createNote("note1", anonymous);
+    String note1Id = notebook.createNote("note1", anonymous);
+    Note note1 = notebook.processNote(note1Id,
+      note1Tmp -> {
+        return note1Tmp;
+      });
 
     // add paragraph with invalid magic
     Paragraph p1 = note1.addNewParagraph(AuthenticationInfo.ANONYMOUS);
@@ -229,12 +241,12 @@ public class HeliumApplicationFactoryTest extends AbstractInterpreterTest {
     }
 
     // remove note
-    notebook.removeNote(note1, anonymous);
+    notebook.removeNote(note1.getId(), anonymous);
   }
 
 
   @Test
-  @Ignore
+  @Disabled
   public void testUnloadOnInterpreterRestart() throws IOException, InterpreterException {
     // given
     HeliumPackage pkg1 = new HeliumPackage(HeliumType.APPLICATION,
@@ -245,7 +257,11 @@ public class HeliumApplicationFactoryTest extends AbstractInterpreterTest {
         new String[][]{},
         "", "");
 
-    Note note1 = notebook.createNote("note1", anonymous);
+    String note1Id = notebook.createNote("note1", anonymous);
+    Note note1 = notebook.processNote(note1Id,
+      note1Tmp -> {
+        return note1Tmp;
+      });
     String mock1IntpSettingId = null;
     for (InterpreterSetting setting : note1.getBindedInterpreterSettings(new ArrayList<>())) {
       if (setting.getName().equals("mock1")) {
@@ -280,6 +296,6 @@ public class HeliumApplicationFactoryTest extends AbstractInterpreterTest {
     assertEquals(ApplicationState.Status.UNLOADED, app.getStatus());
 
     // clean
-    notebook.removeNote(note1, anonymous);
+    notebook.removeNote(note1.getId(), anonymous);
   }
 }

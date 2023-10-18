@@ -123,7 +123,7 @@ public class PyFlinkInterpreter extends PythonInterpreter {
       if (useIPython() || (!useIPython() && getPythonProcessLauncher().isRunning())) {
         InterpreterResult result = super.interpret("intp.resetClassLoaderInPythonThread()", context);
         if (result.code() != InterpreterResult.Code.SUCCESS) {
-          LOGGER.warn("Fail to resetClassLoaderInPythonThread: " + result.toString());
+          LOGGER.warn("Fail to resetClassLoaderInPythonThread: {}", result);
         }
       }
     }
@@ -182,8 +182,8 @@ public class PyFlinkInterpreter extends PythonInterpreter {
     return flinkInterpreter.getProgress(context);
   }
 
-  public boolean isFlink110() {
-    return flinkInterpreter.getFlinkVersion().isFlink110();
+  public boolean isAfterFlink114() {
+    return flinkInterpreter.getFlinkVersion().isAfterFlink114();
   }
 
   public boolean isAfterFlink114() {
@@ -203,7 +203,7 @@ public class PyFlinkInterpreter extends PythonInterpreter {
     return flinkInterpreter.getJavaBatchTableEnvironment(planner);
   }
 
-  public TableEnvironment getJavaStreamTableEnvironment(String planner) {
-    return flinkInterpreter.getJavaStreamTableEnvironment(planner);
+  public TableEnvironment getJavaStreamTableEnvironment() {
+    return flinkInterpreter.getJavaStreamTableEnvironment();
   }
 }

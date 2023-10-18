@@ -24,7 +24,7 @@
   <parent>
     <artifactId>zeppelin</artifactId>
     <groupId>org.apache.zeppelin</groupId>
-    <version>0.10.1</version>
+    <version>0.11.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>zeppelin-interpreter-shaded</artifactId>
@@ -33,15 +33,14 @@
   <description>Zeppelin Interpreter Shaded</description>
 
   <properties>
-    <!--plugin versions-->
-    <shaded.dependency.prefix>org.apache.zeppelin.shaded</shaded.dependency.prefix>
+    <shaded.dependency.prefix>shaded.org.apache.zeppelin</shaded.dependency.prefix>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>org.apache.zeppelin</groupId>
       <artifactId>zeppelin-interpreter</artifactId>
-      <version>0.10.1</version>
+      <version>0.11.0-SNAPSHOT</version>
       <optional>true</optional>
     </dependency>
   </dependencies>
@@ -118,6 +117,11 @@
                 <exclude>org/w3c/dom/**/*</exclude>
                 <exclude>org/xml/sax/*</exclude>
                 <exclude>org/xml/sax/**/*</exclude>
+
+                <!-- ZEPPELIN-5875 To avoid changing class name improperly between configuration and code
+                  `org/apache/zeppelin/shaded/org.apache.zeppelin.shaded.org.eclipse.sisu.space.SisuIndexAPT6`
+                  -->
+                <exclude>org/eclipse/sisu/**</exclude>
               </excludes>
             </relocation>
             <relocation>
@@ -155,6 +159,10 @@
             </goals>
             <configuration>
               <target>
+                <echo>ANT TASK - clean files....</echo>
+                <delete failonerror="false">
+                  <fileset dir="${project.basedir}/../interpreter" includes="zeppelin-interpreter-shaded-*.jar" />
+                </delete>
                 <echo>ANT TASK - copying files....</echo>
                 <copy todir="${project.basedir}/../interpreter" overwrite="true" flatten="true">
                   <fileset dir="${project.build.directory}" includes="zeppelin-interpreter-shaded-*.jar" >

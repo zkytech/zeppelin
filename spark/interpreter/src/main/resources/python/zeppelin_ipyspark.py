@@ -56,12 +56,13 @@ jconf = jsc.getConf()
 conf = SparkConf(_jvm=gateway.jvm, _jconf=jconf)
 sc = _zsc_ = SparkContext(jsc=jsc, gateway=gateway, conf=conf)
 
-if not intp.isSpark1():
-    from pyspark.sql import SparkSession
-    spark = __zSpark__ = SparkSession(sc, intp.getSparkSession())
-    sqlContext = sqlc = __zSqlc__ = __zSpark__._wrapped
+from pyspark.sql import SparkSession
+from pyspark.sql import SQLContext
+spark = __zSpark__ = SparkSession(sc, intp.getSparkSession())
+if intp.isAfterSpark33():
+    sqlContext = sqlc = __zSqlc__ = SQLContext._get_or_create(sc)
 else:
-    sqlContext = sqlc = __zSqlc__ = SQLContext(sparkContext=sc, sqlContext=intp.getSQLContext())
+    sqlContext = sqlc = __zSqlc__ = __zSpark__._wrapped
 
 class IPySparkZeppelinContext(PyZeppelinContext):
 

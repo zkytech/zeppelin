@@ -17,9 +17,16 @@
 
 package org.apache.zeppelin.notebook.scheduler;
 
-import java.util.Set;
-
 public interface SchedulerService {
+
+  /**
+   * @param noteId
+   * @return return true if the cron refresh was successfull
+   */
   boolean refreshCron(String noteId);
-  Set<?> getJobs();
+
+  /**
+   * @return size of queued jobs
+   */
+  int getJobsSize();
 }

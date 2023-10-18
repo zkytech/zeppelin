@@ -65,8 +65,8 @@ function make_binary_release() {
 
   cp -r "${WORKING_DIR}/zeppelin" "${WORKING_DIR}/zeppelin-${RELEASE_VERSION}-bin-${BIN_RELEASE_NAME}"
   cd "${WORKING_DIR}/zeppelin-${RELEASE_VERSION}-bin-${BIN_RELEASE_NAME}"
-  echo "mvn clean package -Pbuild-distr -DskipTests ${BUILD_FLAGS}"
-  mvn clean package -Pbuild-distr -DskipTests ${BUILD_FLAGS}
+  echo "./mvnw clean package -Pbuild-distr -DskipTests ${BUILD_FLAGS}"
+  ./mvnw clean package -Pbuild-distr -DskipTests ${BUILD_FLAGS}
   if [[ $? -ne 0 ]]; then
     echo "Build failed. ${BUILD_FLAGS}"
     exit 1
@@ -98,7 +98,9 @@ function make_binary_release() {
 #git_clone
 cp -r ./* ${WORKING_DIR}/
 make_source_package
-make_binary_release netinst "-Pweb-angular -Phadoop-2.6 -pl !beam,!hbase,!pig,!jdbc,!file,!flink,!ignite,!kylin,!lens,!cassandra,!elasticsearch,!bigquery,!alluxio,!scio,!livy,!groovy,!sap,!java,!geode,!neo4j,!hazelcastjet,!submarine,!sparql,!mongodb,!ksql,!scalding -am"
+
+make_binary_release netinst "-Pweb-angular -Phadoop-2.6 -pl !hbase,!jdbc,!file,!flink,!cassandra,!elasticsearch,!bigquery,!alluxio,!livy,!groovy,!java,!neo4j,!submarine,!sparql,!mongodb -am"
+
 make_binary_release all "-Pweb-angular -Phadoop-2.6"
 
 # remove non release files and dirs

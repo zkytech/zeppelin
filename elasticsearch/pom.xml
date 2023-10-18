@@ -23,7 +23,7 @@
   <parent>
     <artifactId>zeppelin-interpreter-parent</artifactId>
     <groupId>org.apache.zeppelin</groupId>
-    <version>0.10.1</version>
+    <version>0.11.0-SNAPSHOT</version>
     <relativePath>../zeppelin-interpreter-parent/pom.xml</relativePath>
   </parent>
 
@@ -38,6 +38,8 @@
     <guava.version>18.0</guava.version>
     <json-flattener.version>0.1.6</json-flattener.version>
     <unirest.version>1.4.9</unirest.version>
+    <!--test library versions-->
+    <hamcrest.all.version>1.3</hamcrest.all.version>
   </properties>
 
   <dependencies>
@@ -81,6 +83,11 @@
       <version>${unirest.version}</version>
     </dependency>
 
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -97,9 +104,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <configuration>
-          <skip>false</skip>
-        </configuration>
       </plugin>
     </plugins>
   </build>

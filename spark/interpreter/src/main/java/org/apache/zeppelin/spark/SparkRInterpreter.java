@@ -43,7 +43,6 @@ public class SparkRInterpreter extends RInterpreter {
 
   private SparkInterpreter sparkInterpreter;
   private SparkVersion sparkVersion;
-  private boolean isSpark1;
   private SparkContext sc;
   private JavaSparkContext jsc;
 
@@ -57,11 +56,6 @@ public class SparkRInterpreter extends RInterpreter {
   }
 
   @Override
-  protected boolean isSecretSupported() {
-    return sparkVersion.isSecretSocketSupported();
-  }
-
-  @Override
   protected int sparkVersion() {
     return new SparkVersion(sc.version()).toNumber();
   }
@@ -72,7 +66,6 @@ public class SparkRInterpreter extends RInterpreter {
     this.sc = sparkInterpreter.getSparkContext();
     this.jsc = sparkInterpreter.getJavaSparkContext();
     this.sparkVersion = new SparkVersion(sc.version());
-    this.isSpark1 = sparkVersion.getMajorVersion() == 1;
 
     LOGGER.info("SparkRInterpreter: SPARK_HOME={}", sc.getConf().getenv("SPARK_HOME"));
     Arrays.stream(sc.getConf().getAll())
@@ -82,9 +75,7 @@ public class SparkRInterpreter extends RInterpreter {
 
     ZeppelinRContext.setSparkContext(sc);
     ZeppelinRContext.setJavaSparkContext(jsc);
-    if (!isSpark1) {
-      ZeppelinRContext.setSparkSession(sparkInterpreter.getSparkSession());
-    }
+    ZeppelinRContext.setSparkSession(sparkInterpreter.getSparkSession());
     ZeppelinRContext.setSqlContext(sparkInterpreter.getSQLContext());
     ZeppelinRContext.setZeppelinContext(sparkInterpreter.getZeppelinContext());
     super.open();
@@ -100,23 +91,16 @@ public class SparkRInterpreter extends RInterpreter {
     sparkInterpreter.getSparkContext().setJobGroup(jobGroup, jobDesc, false);
     String setJobGroup = "";
     // assign setJobGroup to dummy__, otherwise it would print NULL for this statement
-    if (!isSpark1) {
-      setJobGroup = "dummy__ <- setJobGroup(\"" + jobGroup +
-          "\", \" +" + jobDesc + "\", TRUE)";
-    } else {
-      setJobGroup = "dummy__ <- setJobGroup(sc, \"" + jobGroup +
-          "\", \"" + jobDesc + "\", TRUE)";
-    }
+    setJobGroup = "dummy__ <- setJobGroup(\"" + jobGroup +
+        "\", \" +" + jobDesc + "\", TRUE)";
     lines = setJobGroup + "\n" + lines;
-    if (sparkInterpreter.getSparkVersion().newerThanEquals(SparkVersion.SPARK_2_3_0)) {
-      // setLocalProperty is only available from spark 2.3.0
-      String setPoolStmt = "setLocalProperty('spark.scheduler.pool', NULL)";
-      if (interpreterContext.getLocalProperties().containsKey("pool")) {
-        setPoolStmt = "setLocalProperty('spark.scheduler.pool', '" +
-            interpreterContext.getLocalProperties().get("pool") + "')";
-      }
-      lines = setPoolStmt + "\n" + lines;
+
+    String setPoolStmt = "setLocalProperty('spark.scheduler.pool', NULL)";
+    if (interpreterContext.getLocalProperties().containsKey("pool")) {
+      setPoolStmt = "setLocalProperty('spark.scheduler.pool', '" +
+          interpreterContext.getLocalProperties().get("pool") + "')";
     }
+    lines = setPoolStmt + "\n" + lines;
     return super.internalInterpret(lines, interpreterContext);
   }
 
@@ -157,13 +141,4 @@ public class SparkRInterpreter extends RInterpreter {
     return sparkInterpreter.getZeppelinContext();
   }
 
-  @Override
-  public List<InterpreterCompletion> completion(String buf, int cursor,
-                                                InterpreterContext interpreterContext) {
-    return new ArrayList<>();
-  }
-
-  public boolean isSpark1() {
-    return isSpark1;
-  }
 }

@@ -17,48 +17,42 @@
 package org.apache.zeppelin.flink;
 
 
-import junit.framework.TestCase;
 import net.jodah.concurrentunit.Waiter;
-import org.apache.commons.io.FileUtils;
 import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.display.ui.CheckBox;
 import org.apache.zeppelin.display.ui.Select;
 import org.apache.zeppelin.display.ui.TextBox;
-import org.apache.zeppelin.interpreter.InterpreterContext;
-import org.apache.zeppelin.interpreter.InterpreterException;
-import org.apache.zeppelin.interpreter.InterpreterGroup;
-import org.apache.zeppelin.interpreter.InterpreterOutput;
-import org.apache.zeppelin.interpreter.InterpreterResult;
-import org.apache.zeppelin.interpreter.InterpreterResultMessage;
+import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.remote.RemoteInterpreterEventClient;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeoutException;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 
-public class FlinkInterpreterTest {
+class FlinkInterpreterTest {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FlinkInterpreterTest.class);
 
   private FlinkInterpreter interpreter;
   private AngularObjectRegistry angularObjectRegistry;
 
-  @Before
+  @BeforeEach
   public void setUp() throws InterpreterException {
     Properties p = new Properties();
     p.setProperty("zeppelin.flink.printREPLOutput", "true");
@@ -74,7 +68,7 @@ public class FlinkInterpreterTest {
     angularObjectRegistry = new AngularObjectRegistry("flink", null);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws InterpreterException {
     if (interpreter != null) {
       interpreter.close();
@@ -82,7 +76,7 @@ public class FlinkInterpreterTest {
   }
 
   @Test
-  public void testScalaBasic() throws InterpreterException, IOException {
+  void testScalaBasic() throws InterpreterException, IOException {
     InterpreterContext context = getInterpreterContext();
     InterpreterResult result = interpreter.interpret("val a=\"hello world\"", context);
     assertEquals(InterpreterResult.Code.SUCCESS, result.code());
@@ -123,8 +117,8 @@ public class FlinkInterpreterTest {
     assertEquals(InterpreterResult.Code.ERROR, result.code());
     resultMessages = context.out.toInterpreterResultMessage();
     assertEquals(InterpreterResult.Type.TEXT, resultMessages.get(0).getType());
-    assertTrue(resultMessages.get(0).getData(),
-            resultMessages.get(0).getData().contains("not found: value b"));
+    assertTrue(resultMessages.get(0).getData().contains("not found: value b"),
+        resultMessages.get(0).getData());
 
     // multiple line
     context = getInterpreterContext();
@@ -220,7 +214,7 @@ public class FlinkInterpreterTest {
   }
 
   @Test
-  public void testZShow() throws InterpreterException, IOException {
+  void testZShow() throws InterpreterException, IOException {
     // show dataset
     InterpreterContext context = getInterpreterContext();
     InterpreterResult result = interpreter.interpret(
@@ -229,7 +223,7 @@ public class FlinkInterpreterTest {
     assertEquals(InterpreterResult.Code.SUCCESS, result.code());
     context = getInterpreterContext();
     result = interpreter.interpret("z.show(data)", context);
-    assertEquals(context.out.toString(), InterpreterResult.Code.SUCCESS, result.code());
+    assertEquals(InterpreterResult.Code.SUCCESS, result.code(), context.out.toString());
     List<InterpreterResultMessage> resultMessages = context.out.toInterpreterResultMessage();
     if (interpreter.getFlinkVersion().isAfterFlink114()) {
       assertEquals(InterpreterResult.Type.TEXT, resultMessages.get(0).getType());
@@ -241,7 +235,7 @@ public class FlinkInterpreterTest {
   }
 
   @Test
-  public void testCompletion() throws InterpreterException {
+  void testCompletion() throws InterpreterException {
     InterpreterContext context = getInterpreterContext();
     InterpreterResult result = interpreter.interpret("val a=\"hello world\"", context);
     assertEquals(InterpreterResult.Code.SUCCESS, result.code());
@@ -255,7 +249,7 @@ public class FlinkInterpreterTest {
   }
 
   @Test
-  public void testBatchWordCount() throws InterpreterException, IOException {
+  void testBatchWordCount() throws InterpreterException, IOException {
     InterpreterContext context = getInterpreterContext();
     InterpreterResult result = interpreter.interpret(
             "val data = benv.fromElements(\"hello world\", \"hello flink\", \"hello hadoop\")",
@@ -268,7 +262,7 @@ public class FlinkInterpreterTest {
             "  .groupBy(0)\n" +
             "  .sum(1)\n" +
             "  .print()", context);
-    assertEquals(context.out.toString(), InterpreterResult.Code.SUCCESS, result.code());
+    assertEquals(InterpreterResult.Code.SUCCESS, result.code(), context.out.toString());
 
     String[] expectedCounts = {"(hello,3)", "(world,1)", "(flink,1)", "(hadoop,1)"};
     Arrays.sort(expectedCounts);
@@ -280,7 +274,7 @@ public class FlinkInterpreterTest {
   }
 
   @Test
-  public void testStreamWordCount() throws InterpreterException, IOException {
+  void testStreamWordCount() throws InterpreterException, IOException {
     InterpreterContext context = getInterpreterContext();
     InterpreterResult result = interpreter.interpret(
             "val data = senv.fromElements(\"hello world\", \"hello flink\", \"hello hadoop\")",
@@ -299,12 +293,13 @@ public class FlinkInterpreterTest {
     String[] expectedCounts = {"(hello,3)", "(world,1)", "(flink,1)", "(hadoop,1)"};
     String output = context.out.toInterpreterResultMessage().get(0).getData();
     for (String expectedCount : expectedCounts) {
-      assertTrue(output, output.contains(expectedCount));
+      assertTrue(output.contains(expectedCount), output);
     }
   }
 
   @Test
-  public void testCancelStreamSql() throws IOException, InterpreterException, InterruptedException, TimeoutException {
+  void testCancelStreamSql()
+      throws IOException, InterpreterException, InterruptedException, TimeoutException {
     String initStreamScalaScript = FlinkStreamSqlInterpreterTest.getInitStreamScript(1000);
     InterpreterResult result = interpreter.interpret(initStreamScalaScript,
             getInterpreterContext());
@@ -342,32 +337,38 @@ public class FlinkInterpreterTest {
     assertEquals(InterpreterResult.Code.SUCCESS, result.code());
     List<InterpreterResultMessage> resultMessages = context.out.toInterpreterResultMessage();
     assertEquals(InterpreterResult.Type.TABLE, resultMessages.get(0).getType());
-    TestCase.assertTrue(resultMessages.toString(),
-            resultMessages.get(0).getData().contains("url\tpv\n"));
+    assertTrue(resultMessages.get(0).getData().contains("url\tpv\n"), resultMessages.toString());
   }
 
-  // TODO(zjffdu) flaky test
-  // @Test
-  public void testResumeStreamSqlFromSavePoint() throws IOException, InterpreterException, InterruptedException, TimeoutException {
+  @Test
+  void testResumeStreamSqlFromSavePointPath()
+      throws IOException, InterpreterException, InterruptedException, TimeoutException {
+    if (!interpreter.getFlinkShims().getFlinkVersion().isAfterFlink114()) {
+      LOGGER.info("Skip testResumeStreamSqlFromSavePointPath, because this test is only passed after Flink 1.14 due to FLINK-23654");
+      // By default, this thread pool in Flink JobManager is the number of cpu cores. While the cpu cores in github action container is too small
+      return;
+    }
+
     String initStreamScalaScript = FlinkStreamSqlInterpreterTest.getInitStreamScript(1000);
     InterpreterResult result = interpreter.interpret(initStreamScalaScript,
             getInterpreterContext());
     assertEquals(InterpreterResult.Code.SUCCESS, result.code());
 
-    File savePointDir = FileUtils.getTempDirectory();
+    File savePointDir = Files.createTempDirectory("zeppelin-flink").toFile();
     final Waiter waiter = new Waiter();
     Thread thread = new Thread(() -> {
       try {
         InterpreterContext context = getInterpreterContext();
-        context.getLocalProperties().put("savePointDir", savePointDir.getAbsolutePath());
+        context.getLocalProperties().put(JobManager.SAVEPOINT_DIR, savePointDir.getAbsolutePath());
         context.getLocalProperties().put("parallelism", "1");
         context.getLocalProperties().put("maxParallelism", "10");
         InterpreterResult result2 = interpreter.interpret(
                 "val table = stenv.sqlQuery(\"select url, count(1) as pv from " +
                 "log group by url\")\nz.show(table, streamType=\"update\")", context);
-        System.out.println("------------" + context.out.toString());
-        System.out.println("------------" + result2);
+        LOGGER.info("------------" + context.out.toString());
+        LOGGER.info("------------" + result2);
         waiter.assertTrue(context.out.toString().contains("url\tpv\n"));
+        // Flink job is succeed when it is cancelled with save point.
         waiter.assertEquals(InterpreterResult.Code.SUCCESS, result2.code());
       } catch (Exception e) {
         e.printStackTrace();
@@ -378,24 +379,37 @@ public class FlinkInterpreterTest {
     thread.start();
 
     // the streaming job will run for 60 seconds. check init_stream.scala
-    // sleep 20 seconds to make sure the job is started but not finished
-    Thread.sleep(20 * 1000);
+    // sleep 30 seconds to make sure the job is started but not finished
+    Thread.sleep(30 * 1000);
 
     InterpreterContext context = getInterpreterContext();
-    context.getLocalProperties().put("savePointDir", savePointDir.getAbsolutePath());
+    context.getLocalProperties().put(JobManager.SAVEPOINT_DIR, savePointDir.getAbsolutePath());
     context.getLocalProperties().put("parallelism", "2");
     context.getLocalProperties().put("maxParallelism", "10");
     interpreter.cancel(context);
-    waiter.await(20 * 1000);
+    waiter.await(30 * 1000);
+
+    // verify save point is generated
+    String[] allSavepointPath = savePointDir.list((dir, name) -> name.startsWith("savepoint"));
+    assertTrue(allSavepointPath.length > 0);
+
     // resume job from savepoint
+    context = getInterpreterContext();
+    context.getLocalProperties().put(JobManager.SAVEPOINT_PATH, allSavepointPath[0]);
+    context.getLocalProperties().put("parallelism", "2");
+    context.getLocalProperties().put("maxParallelism", "10");
     interpreter.interpret(
             "val table = stenv.sqlQuery(\"select url, count(1) as pv from " +
             "log group by url\")\nz.show(table, streamType=\"update\")", context);
     assertEquals(InterpreterResult.Code.SUCCESS, result.code());
     List<InterpreterResultMessage> resultMessages = context.out.toInterpreterResultMessage();
     assertEquals(InterpreterResult.Type.TABLE, resultMessages.get(0).getType());
-    TestCase.assertTrue(resultMessages.toString(),
-            resultMessages.get(0).getData().contains("url\tpv\n"));
+    assertTrue(resultMessages.get(0).getData().contains("url\tpv\n"), resultMessages.toString());
+    assertEquals("url\tpv\n" +
+        "home\t10\n" +
+        "product\t30\n" +
+        "search\t20\n",
+        resultMessages.get(0).getData(), resultMessages.toString());
   }
 
   private InterpreterContext getInterpreterContext() {

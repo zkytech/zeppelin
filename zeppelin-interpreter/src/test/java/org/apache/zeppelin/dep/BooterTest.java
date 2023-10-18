@@ -17,33 +17,51 @@
 
 package org.apache.zeppelin.dep;
 
-import org.junit.Test;
+import org.apache.zeppelin.conf.ZeppelinConfiguration;
+import org.eclipse.aether.repository.RemoteRepository;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Paths;
+import java.util.List;
 
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class BooterTest {
+
+class BooterTest {
 
   @Test
-  public void should_return_absolute_path() {
+  void should_return_absolute_path() {
     String resolvedPath = Booter.resolveLocalRepoPath("path");
     assertTrue(Paths.get(resolvedPath).isAbsolute());
   }
 
   @Test
-  public void should_not_change_absolute_path() {
+  void should_not_change_absolute_path() {
     String absolutePath
         = Paths.get("first", "second").toAbsolutePath().toString();
     String resolvedPath = Booter.resolveLocalRepoPath(absolutePath);
-
-    assertThat(resolvedPath, equalTo(absolutePath));
+    assertEquals(absolutePath, resolvedPath);
   }
 
-  @Test(expected = NullPointerException.class)
-  public void should_throw_exception_for_null() {
-    Booter.resolveLocalRepoPath(null);
+  @Test
+  void should_throw_exception_for_null() {
+    assertThrows(NullPointerException.class, () -> {
+      Booter.resolveLocalRepoPath(null);
+    });
+
+  }
+
+  @Test
+  void getInterpreterMvnRepoPathTest() {
+    ZeppelinConfiguration.reset();
+    ZeppelinConfiguration.create("zeppelin-site-test.xml");
+    List<RemoteRepository> remoteRepositories = Booter.newCentralRepositorys(null);
+    assertNotNull(remoteRepositories);
+    assertEquals(2, remoteRepositories.size());
+    assertEquals("https://repo1.maven.org/maven2/", remoteRepositories.get(0).getUrl());
+    assertEquals("https://repo2.maven.org/maven2/", remoteRepositories.get(1).getUrl());
   }
 }

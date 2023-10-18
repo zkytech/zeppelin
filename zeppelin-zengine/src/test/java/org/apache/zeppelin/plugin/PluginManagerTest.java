@@ -19,13 +19,11 @@ package org.apache.zeppelin.plugin;
 
 import org.apache.zeppelin.notebook.repo.GitNotebookRepo;
 import org.apache.zeppelin.notebook.repo.NotebookRepo;
-import org.apache.zeppelin.notebook.repo.OldGitNotebookRepo;
-import org.apache.zeppelin.notebook.repo.OldNotebookRepo;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 public class PluginManagerTest {
@@ -35,9 +33,5 @@ public class PluginManagerTest {
     NotebookRepo notebookRepo = PluginManager.get()
             .loadNotebookRepo("org.apache.zeppelin.notebook.repo.GitNotebookRepo");
     assertTrue(notebookRepo instanceof GitNotebookRepo);
-
-    OldNotebookRepo oldNotebookRepo = PluginManager.get()
-            .loadOldNotebookRepo("org.apache.zeppelin.notebook.repo.GitNotebookRepo");
-    assertTrue(oldNotebookRepo instanceof OldGitNotebookRepo);
   }
 }

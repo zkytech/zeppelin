@@ -144,6 +144,14 @@ docker run -u $(id -u) -p 8080:8080 --rm -v /mnt/disk1/flink-sql-cookbook-on-zep
 
 Download Flink 1.10 or afterwards (Scala 2.11 & 2.12 are both supported)
 
+### Specific for Flink 1.15 and above
+
+Flink 1.15 is scala free and has changed its binary distribution. If you would like to make Zeppelin work with Flink 1.15, you need to do the following extra steps.
+* Move FLINK_HOME/opt/flink-table-planner_2.12-1.15.0.jar to FLINK_HOME/lib
+* Move FLINK_HOME/lib/flink-table-planner-loader-1.15.0.jar to FLINK_HOME/opt
+* Download flink-table-api-scala-bridge_2.12-1.15.0.jar and flink-table-api-scala_2.12-1.15.0.jar to FLINK_HOME/lib
+
+Flink 1.16 introduces new `ClientResourceManager` for sql client, you need to move `FLINK_HOME/opt/flink-sql-client-1.16.0.jar` to `FLINK_HOME/lib`
 
 ## Flink on Zeppelin Architecture
 
@@ -285,7 +293,11 @@ You can also add and set other Flink properties which are not listed in the tabl
     <td>true</td>
     <td>Whether display Scala shell output in colorful format</td>
   </tr>
-
+  <tr>
+    <td>zeppelin.flink.scala.shell.tmp_dir</td>
+    <td></td>
+    <td>Temp folder for storing scala shell compiled jar</td>
+  </tr>
   <tr>
     <td>zeppelin.flink.enableHive</td>
     <td>false</td>
@@ -381,21 +393,13 @@ Here are the builtin variables created in Flink Scala shell.
 
 * senv (StreamExecutionEnvironment),
 * benv (ExecutionEnvironment)
-* stenv (StreamTableEnvironment for blink planner)
-* btenv (BatchTableEnvironment for blink planner)
-* stenv_2 (StreamTableEnvironment for flink planner)
-* btenv_2 (BatchTableEnvironment for flink planner)
+* stenv (StreamTableEnvironment for blink planner (aka. new planner))
+* btenv (BatchTableEnvironment for blink planner (aka. new planner))
 * z  (ZeppelinContext)
 
 ### Blink/Flink Planner
 
-There are 2 planners supported by Flink SQL: `flink` & `blink`.
-
-* If you want to use DataSet api, and convert it to Flink table then please use `flink` planner (`btenv_2` and `stenv_2`).
-* In other cases, we would always recommend you to use `blink` planner. This is also what Flink batch/streaming sql interpreter use (`%flink.bsql` & `%flink.ssql`)
-
-Check this [page](https://ci.apache.org/projects/flink/flink-docs-release-1.10/dev/table/common.html#main-differences-between-the-two-planners) for the difference between flink planner and blink planner.
-
+After Zeppelin 0.11, we remove the support of flink planner (aka. old planner) which is also removed after Flink 1.14.
 
 ### Stream WordCount Example
 
@@ -533,10 +537,8 @@ These are variables created in Python shell.
 
 * `s_env`    (StreamExecutionEnvironment),
 * `b_env`     (ExecutionEnvironment)
-* `st_env`   (StreamTableEnvironment for blink planner)
-* `bt_env`   (BatchTableEnvironment for blink planner)
-* `st_env_2`   (StreamTableEnvironment for flink planner)
-* `bt_env_2`   (BatchTableEnvironment for flink planner)
+* `st_env`   (StreamTableEnvironment for blink planner (aka. new planner))
+* `bt_env`   (BatchTableEnvironment for blink planner (aka. new planner))
 
 
 ### Configure PyFlink

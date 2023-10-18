@@ -59,8 +59,6 @@ public class IPySparkInterpreter extends IPythonInterpreter {
             getInterpreterInTheSameSessionByClassName(PySparkInterpreter.class, false);
     setProperty("zeppelin.python", pySparkInterpreter.getPythonExec(sparkInterpreter.getSparkContext().conf()));
 
-    setProperty("zeppelin.py4j.useAuth",
-            sparkInterpreter.getSparkVersion().isSecretSocketSupported() + "");
     SparkConf conf = sparkInterpreter.getSparkContext().getConf();
     // only set PYTHONPATH in embedded, local or yarn-client mode.
     // yarn-cluster will setup PYTHONPATH automatically.
@@ -70,8 +68,6 @@ public class IPySparkInterpreter extends IPythonInterpreter {
     }
     setUseBuiltinPy4j(false);
     setAdditionalPythonInitFile("python/zeppelin_ipyspark.py");
-    setProperty("zeppelin.py4j.useAuth",
-            sparkInterpreter.getSparkVersion().isSecretSocketSupported() + "");
     super.open();
     opened = true;
   }
@@ -157,12 +153,13 @@ public class IPySparkInterpreter extends IPythonInterpreter {
     return sparkInterpreter.getProgress(context);
   }
 
-  public boolean isSpark1() {
-    return sparkInterpreter.getSparkVersion().getMajorVersion() == 1;
-  }
-
   public boolean isSpark3() {
     return sparkInterpreter.getSparkVersion().getMajorVersion() == 3;
+  }
+
+  // Used by PySpark
+  public boolean isAfterSpark33() {
+    return sparkInterpreter.getSparkVersion().newerThanEquals(SparkVersion.SPARK_3_3_0);
   }
 
   public JavaSparkContext getJavaSparkContext() {

@@ -179,29 +179,8 @@ if [[ "${INTERPRETER_ID}" == "spark" ]]; then
     export PYTHONPATH="$SPARK_HOME/python/:$PYTHONPATH"
     export PYTHONPATH="${py4j[0]}:$PYTHONPATH"
   else
-    # add Hadoop jars into classpath
-    if [[ -n "${HADOOP_HOME}" ]]; then
-      # Apache
-      addEachJarInDirRecursiveForIntp "${HADOOP_HOME}/share"
-
-      # CDH
-      addJarInDirForIntp "${HADOOP_HOME}"
-      addJarInDirForIntp "${HADOOP_HOME}/lib"
-    fi
-
-    addJarInDirForIntp "${INTERPRETER_DIR}/dep"
-
-    py4j=("${ZEPPELIN_HOME}"/interpreter/spark/pyspark/py4j-*-src.zip)
-    # pick the first match py4j zip - there should only be one
-    PYSPARKPATH="${ZEPPELIN_HOME}/interpreter/spark/pyspark/pyspark.zip:${py4j[0]}"
-
-    if [[ -z "${PYTHONPATH}" ]]; then
-      export PYTHONPATH="${PYSPARKPATH}"
-    else
-      export PYTHONPATH="${PYTHONPATH}:${PYSPARKPATH}"
-    fi
-    unset PYSPARKPATH
-    export SPARK_CLASSPATH+=":${ZEPPELIN_INTP_CLASSPATH}"
+    echo "No SPARK_HOME is specified"
+    exit -1
   fi
 
   if [[ -n "${HADOOP_CONF_DIR}" ]] && [[ -d "${HADOOP_CONF_DIR}" ]]; then
@@ -226,28 +205,7 @@ elif [[ "${INTERPRETER_ID}" == "hbase" ]]; then
   else
     echo "HBASE_HOME and HBASE_CONF_DIR are not set, configuration might not be loaded"
   fi
-elif [[ "${INTERPRETER_ID}" == "pig" ]]; then
-   # autodetect HADOOP_CONF_HOME by heuristic
-  if [[ -n "${HADOOP_HOME}" ]] && [[ -z "${HADOOP_CONF_DIR}" ]]; then
-    if [[ -d "${HADOOP_HOME}/etc/hadoop" ]]; then
-      export HADOOP_CONF_DIR="${HADOOP_HOME}/etc/hadoop"
-    elif [[ -d "/etc/hadoop/conf" ]]; then
-      export HADOOP_CONF_DIR="/etc/hadoop/conf"
-    fi
-  fi
 
-  if [[ -n "${HADOOP_CONF_DIR}" ]] && [[ -d "${HADOOP_CONF_DIR}" ]]; then
-    ZEPPELIN_INTP_CLASSPATH+=":${HADOOP_CONF_DIR}"
-  fi
-
-  # autodetect TEZ_CONF_DIR
-  if [[ -n "${TEZ_CONF_DIR}" ]]; then
-    ZEPPELIN_INTP_CLASSPATH+=":${TEZ_CONF_DIR}"
-  elif [[ -d "/etc/tez/conf" ]]; then
-    ZEPPELIN_INTP_CLASSPATH+=":/etc/tez/conf"
-  else
-    echo "TEZ_CONF_DIR is not set, configuration might not be loaded"
-  fi
 elif [[ "${INTERPRETER_ID}" == "flink" ]]; then
   addEachJarInDirRecursiveForIntp "${FLINK_HOME}/lib"
 
@@ -300,9 +258,9 @@ if [[ -n "${SPARK_SUBMIT}" ]]; then
   IFS=' ' read -r -a SPARK_SUBMIT_OPTIONS_ARRAY <<< "${SPARK_SUBMIT_OPTIONS}"
   IFS='|' read -r -a ZEPPELIN_SPARK_CONF_ARRAY <<< "${ZEPPELIN_SPARK_CONF}"
   if [[ "${ZEPPELIN_SPARK_YARN_CLUSTER}" == "true"  ]]; then
-    INTERPRETER_RUN_COMMAND+=("${SPARK_SUBMIT}" "--class" "${ZEPPELIN_SERVER}" "--driver-java-options" "${JAVA_INTP_OPTS}" "${SPARK_SUBMIT_OPTIONS_ARRAY[@]}" "${ZEPPELIN_SPARK_CONF_ARRAY[@]}" "${SPARK_APP_JAR}" "${CALLBACK_HOST}" "${PORT}" "${INTP_GROUP_ID}" "${INTP_PORT}")
+    INTERPRETER_RUN_COMMAND+=("${SPARK_SUBMIT}" "--class" "${ZEPPELIN_SERVER}" "--driver-java-options" "${SPARK_DRIVER_EXTRAJAVAOPTIONS_CONF} ${JAVA_INTP_OPTS}" "${SPARK_SUBMIT_OPTIONS_ARRAY[@]}" "${ZEPPELIN_SPARK_CONF_ARRAY[@]}" "${SPARK_APP_JAR}" "${CALLBACK_HOST}" "${PORT}" "${INTP_GROUP_ID}" "${INTP_PORT}")
   else
-    INTERPRETER_RUN_COMMAND+=("${SPARK_SUBMIT}" "--class" "${ZEPPELIN_SERVER}" "--driver-class-path" "${ZEPPELIN_INTP_CLASSPATH_OVERRIDES}:${ZEPPELIN_INTP_CLASSPATH}" "--driver-java-options" "${JAVA_INTP_OPTS}" "${SPARK_SUBMIT_OPTIONS_ARRAY[@]}" "${ZEPPELIN_SPARK_CONF_ARRAY[@]}" "${SPARK_APP_JAR}" "${CALLBACK_HOST}" "${PORT}" "${INTP_GROUP_ID}" "${INTP_PORT}")
+    INTERPRETER_RUN_COMMAND+=("${SPARK_SUBMIT}" "--class" "${ZEPPELIN_SERVER}" "--driver-class-path" "${ZEPPELIN_INTP_CLASSPATH_OVERRIDES}:${ZEPPELIN_INTP_CLASSPATH}" "--driver-java-options" "${SPARK_DRIVER_EXTRAJAVAOPTIONS_CONF} ${JAVA_INTP_OPTS}" "${SPARK_SUBMIT_OPTIONS_ARRAY[@]}" "${ZEPPELIN_SPARK_CONF_ARRAY[@]}" "${SPARK_APP_JAR}" "${CALLBACK_HOST}" "${PORT}" "${INTP_GROUP_ID}" "${INTP_PORT}")
   fi
 elif [[ -n "${ZEPPELIN_FLINK_APPLICATION_MODE}" ]]; then
   IFS='|' read -r -a ZEPPELIN_FLINK_APPLICATION_MODE_CONF_ARRAY <<< "${ZEPPELIN_FLINK_APPLICATION_MODE_CONF}"

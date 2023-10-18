@@ -24,7 +24,7 @@
     <parent>
         <artifactId>zeppelin</artifactId>
         <groupId>org.apache.zeppelin</groupId>
-        <version>0.10.1</version>
+        <version>0.11.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>zengine-plugins-parent</artifactId>
@@ -41,7 +41,6 @@
         <module>notebookrepo/github</module>
         <module>notebookrepo/azure</module>
         <module>notebookrepo/gcs</module>
-        <module>notebookrepo/zeppelin-hub</module>
         <module>notebookrepo/filesystem</module>
         <module>notebookrepo/mongo</module>
         <module>notebookrepo/oss</module>
@@ -74,15 +73,22 @@
 
         <!-- Test libraries -->
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.mockito</groupId>
-            <artifactId>mockito-all</artifactId>
+            <artifactId>mockito-core</artifactId>
             <scope>test</scope>
+            <exclusions>
+              <!-- used from zeppelin-zenigne -->
+              <exclusion>
+                <groupId>org.objenesis</groupId>
+                <artifactId>objenesis</artifactId>
+              </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 

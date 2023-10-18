@@ -31,6 +31,7 @@ import java.util.Set;
 
 import com.google.gson.Gson;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.zeppelin.common.JsonSerializable;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
@@ -46,7 +47,6 @@ import org.apache.zeppelin.interpreter.remote.RemoteInterpreter;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.resource.ResourcePool;
 import org.apache.zeppelin.scheduler.Job;
-import org.apache.zeppelin.scheduler.JobListener;
 import org.apache.zeppelin.scheduler.JobWithProgressPoller;
 import org.apache.zeppelin.user.AuthenticationInfo;
 import org.apache.zeppelin.user.Credentials;
@@ -60,7 +60,7 @@ import com.google.common.annotations.VisibleForTesting;
  * Paragraph is a representation of an execution unit.
  */
 public class Paragraph extends JobWithProgressPoller<InterpreterResult> implements Cloneable,
-        JsonSerializable {
+    JsonSerializable {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(Paragraph.class);
 
@@ -98,12 +98,12 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
     super(generateId(), null);
   }
 
-  public Paragraph(String paragraphId, Note note, JobListener listener) {
+  public Paragraph(String paragraphId, Note note, ParagraphJobListener listener) {
     super(paragraphId, generateId(), listener);
     this.note = note;
   }
 
-  public Paragraph(Note note, JobListener listener) {
+  public Paragraph(Note note, ParagraphJobListener listener) {
     super(generateId(), listener);
     this.note = note;
   }
@@ -238,7 +238,6 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
     return this.note.getInterpreterFactory().getInterpreter(intpText, executionContext);
   }
 
-  @VisibleForTesting
   public void setInterpreter(Interpreter interpreter) {
     this.interpreter = interpreter;
   }
@@ -348,7 +347,7 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
       if (isEnabled()) {
         setAuthenticationInfo(getAuthenticationInfo());
         interpreter.getScheduler().submit(this);
-      } else {
+       } else {
         LOGGER.info("Skip disabled paragraph. {}", getId());
         setStatus(Job.Status.FINISHED);
         return true;
@@ -368,18 +367,10 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
         return true;
       }
     } catch (InterpreterNotFoundException e) {
-      InterpreterResult intpResult =
-              new InterpreterResult(InterpreterResult.Code.ERROR,
-                      String.format("Interpreter %s not found", this.intpText));
-      setReturn(intpResult, e);
-      setStatus(Job.Status.ERROR);
+      setInterpreterNotFound(e);
       return false;
     } catch (Throwable e) {
-      InterpreterResult intpResult =
-              new InterpreterResult(InterpreterResult.Code.ERROR,
-                      "Unexpected exception: " + ExceptionUtils.getStackTrace(e));
-      setReturn(intpResult, e);
-      setStatus(Job.Status.ERROR);
+      setUnexpectedException(e);
       return false;
     }
   }
@@ -401,7 +392,7 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
       }
       this.interpreter = getBindedInterpreter();
       if (this.interpreter == null) {
-        LOGGER.error("Can not find interpreter name " + intpText);
+        LOGGER.error("Can not find interpreter name {}", intpText);
         throw new RuntimeException("Can not find interpreter for " + intpText);
       }
       LOGGER.info("Run paragraph [title: {}, paragraph_id: {}, interpreter: {}, note_id: {}, note_name: {} , user: {}]\n\n{}\n\n",
@@ -456,7 +447,7 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
         settings.clear();
       }
 
-      LOGGER.debug("RUN : " + script);
+      LOGGER.debug("RUN : {}", script);
       try {
         InterpreterContext context = getInterpreterContext();
         ZeppelinConfiguration zConf = ZeppelinConfiguration.create();
@@ -714,7 +705,7 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
    * note you can see the latest checkpoint's output.
    */
   public void checkpointOutput() {
-    LOGGER.info("Checkpoint Paragraph output for paragraph: " + getId());
+    LOGGER.info("Checkpoint Paragraph output for paragraph: {}", getId());
     this.results = new InterpreterResult(Code.SUCCESS);
     for (InterpreterResultMessage buffer : outputBuffer) {
       results.add(buffer);
@@ -722,7 +713,7 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
   }
 
   @VisibleForTesting
-  public void waitUntilFinished() throws Exception {
+  public void waitUntilFinished() throws InterruptedException {
     while(!isTerminated()) {
       LOGGER.debug("Wait for paragraph to be finished");
       Thread.sleep(1000);
@@ -730,7 +721,7 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
   }
 
   @VisibleForTesting
-  public void waitUntilRunning() throws Exception {
+  public void waitUntilRunning() throws InterruptedException {
     while(!isRunning()) {
       LOGGER.debug("Wait for paragraph to be running");
       Thread.sleep(1000);
@@ -812,14 +803,13 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
     } else if (outputBuffer.size() > index) {
       outputBuffer.set(index, interpreterResultMessage);
     } else {
-      LOGGER.warn("Get output of index: " + index + ", but there's only " +
-              outputBuffer.size() + " output in outputBuffer");
+      LOGGER.warn("Get output of index: {}, but there's only {} output in outputBuffer", index, outputBuffer.size());
     }
   }
 
   public void recover() {
     try {
-      LOGGER.info("Recovering paragraph: " + getId());
+      LOGGER.info("Recovering paragraph: {}", getId());
 
       this.interpreter = getBindedInterpreter();
       InterpreterSetting interpreterSetting = ((ManagedInterpreterGroup)
@@ -827,6 +817,7 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
       Map<String, Object> config
               = interpreterSetting.getConfig(interpreter.getClassName());
       mergeConfig(config);
+
       if (shouldSkipRunParagraph()) {
         LOGGER.info("Skip to run blank paragraph. {}", getId());
         setStatus(Job.Status.FINISHED);
@@ -849,17 +840,25 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
       }
 
     } catch (InterpreterNotFoundException e) {
-      InterpreterResult intpResult =
-              new InterpreterResult(InterpreterResult.Code.ERROR,
-                      String.format("Interpreter %s not found", this.intpText));
-      setReturn(intpResult, e);
-      setStatus(Job.Status.ERROR);
+      setInterpreterNotFound(e);
     } catch (Throwable e) {
-      InterpreterResult intpResult =
-              new InterpreterResult(InterpreterResult.Code.ERROR,
-                      "Unexpected exception: " + ExceptionUtils.getStackTrace(e));
-      setReturn(intpResult, e);
-      setStatus(Job.Status.ERROR);
+      setUnexpectedException(e);
     }
+  }
+
+  public void setInterpreterNotFound(InterpreterNotFoundException e) {
+    InterpreterResult intpResult =
+      new InterpreterResult(InterpreterResult.Code.ERROR,
+              String.format("Interpreter %s not found", this.intpText));
+    setReturn(intpResult, e);
+    setStatus(Job.Status.ERROR);
+  }
+
+  public void setUnexpectedException(Throwable e) {
+    InterpreterResult intpResult =
+      new InterpreterResult(InterpreterResult.Code.ERROR,
+        "Unexpected exception: " + ExceptionUtils.getStackTrace(e));
+    setReturn(intpResult, e);
+    setStatus(Job.Status.ERROR);
   }
 }

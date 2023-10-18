@@ -23,7 +23,7 @@
   <parent>
     <artifactId>zeppelin</artifactId>
     <groupId>org.apache.zeppelin</groupId>
-    <version>0.10.1</version>
+    <version>0.11.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>zeppelin-jupyter-interpreter-shaded</artifactId>
@@ -36,6 +36,34 @@
       <groupId>${project.groupId}</groupId>
       <artifactId>zeppelin-jupyter-interpreter</artifactId>
       <version>${project.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.google.protobuf</groupId>
+          <artifactId>protobuf-java</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.google.errorprone</groupId>
+          <artifactId>error_prone_annotations</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>${gson.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+      <version>${protobuf.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.errorprone</groupId>
+      <artifactId>error_prone_annotations</artifactId>
+      <version>${google.errorprone.version}</version>
     </dependency>
 
   </dependencies>
@@ -78,6 +106,14 @@
             <relocation>
               <pattern>com.google</pattern>
               <shadedPattern>org.apache.zeppelin.jupyter.com.google</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io</pattern>
+              <shadedPattern>org.apache.zeppelin.jupyter.io</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.esotericsoftware</pattern>
+              <shadedPattern>org.apache.zeppelin.jupyter.com.esotericsoftware</shadedPattern>
             </relocation>
           </relocations>
 

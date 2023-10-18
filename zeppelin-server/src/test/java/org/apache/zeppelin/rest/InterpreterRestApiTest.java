@@ -26,19 +26,17 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.util.EntityUtils;
 import org.apache.zeppelin.interpreter.InterpreterOption;
 import org.apache.zeppelin.interpreter.InterpreterSetting;
-import org.apache.zeppelin.notebook.Note;
 import org.apache.zeppelin.notebook.Notebook;
 import org.apache.zeppelin.notebook.Paragraph;
 import org.apache.zeppelin.scheduler.Job.Status;
-import org.apache.zeppelin.server.ZeppelinServer;
 import org.apache.zeppelin.user.AuthenticationInfo;
 import org.apache.zeppelin.utils.TestUtils;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.FixMethodOrder;
-import org.junit.Test;
-import org.junit.runners.MethodSorters;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -47,34 +45,34 @@ import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Zeppelin interpreter rest api tests.
  */
-@FixMethodOrder(MethodSorters.NAME_ASCENDING)
-public class InterpreterRestApiTest extends AbstractTestRestApi {
+@TestMethodOrder(MethodOrderer.MethodName.class)
+class InterpreterRestApiTest extends AbstractTestRestApi {
   private Gson gson = new Gson();
   private AuthenticationInfo anonymous;
 
-  @BeforeClass
-  public static void init() throws Exception {
+  @BeforeAll
+  static void init() throws Exception {
     AbstractTestRestApi.startUp(InterpreterRestApiTest.class.getSimpleName());
   }
 
-  @AfterClass
-  public static void destroy() throws Exception {
+  @AfterAll
+  static void destroy() throws Exception {
     AbstractTestRestApi.shutDown();
   }
 
-  @Before
-  public void setUp() {
+  @BeforeEach
+  void setUp() {
     anonymous = new AuthenticationInfo("anonymous");
   }
 
   @Test
-  public void getAvailableInterpreters() throws IOException {
+  void getAvailableInterpreters() throws IOException {
     // when
     CloseableHttpResponse get = httpGet("/interpreter");
     JsonObject body = getBodyFieldFromResponse(EntityUtils.toString(get.getEntity(), StandardCharsets.UTF_8));
@@ -87,7 +85,7 @@ public class InterpreterRestApiTest extends AbstractTestRestApi {
   }
 
   @Test
-  public void getSettings() throws IOException {
+  void getSettings() throws IOException {
     // when
     CloseableHttpResponse get = httpGet("/interpreter/setting");
     // then
@@ -99,7 +97,7 @@ public class InterpreterRestApiTest extends AbstractTestRestApi {
   }
 
   @Test
-  public void testGetNonExistInterpreterSetting() throws IOException {
+  void testGetNonExistInterpreterSetting() throws IOException {
     // when
     String nonExistInterpreterSettingId = "apache_.zeppelin_1s_.aw3some$";
     CloseableHttpResponse get = httpGet("/interpreter/setting/" + nonExistInterpreterSettingId);
@@ -110,7 +108,7 @@ public class InterpreterRestApiTest extends AbstractTestRestApi {
   }
 
   @Test
-  public void testSettingsCRUD() throws IOException {
+  void testSettingsCRUD() throws IOException {
     // when: call create setting API
     String rawRequest = "{\"name\":\"md3\",\"group\":\"md\"," +
             "\"properties\":{\"propname\": {\"value\": \"propvalue\", \"name\": \"propname\", " +
@@ -159,7 +157,7 @@ public class InterpreterRestApiTest extends AbstractTestRestApi {
   }
 
   @Test
-  public void testCreatedInterpreterDependencies() throws IOException {
+  void testCreatedInterpreterDependencies() throws IOException {
     // when: Create 2 interpreter settings `md1` and `md2` which have different dep.
     String md1Name = "md1";
     String md2Name = "md2";
@@ -228,7 +226,7 @@ public class InterpreterRestApiTest extends AbstractTestRestApi {
   }
 
   @Test
-  public void testSettingsCreateWithEmptyJson() throws IOException {
+  void testSettingsCreateWithEmptyJson() throws IOException {
     // Call Create Setting REST API
     CloseableHttpResponse post = httpPost("/interpreter/setting/", "");
     LOG.info("testSettingCRUD create response\n" + EntityUtils.toString(post.getEntity(), StandardCharsets.UTF_8));
@@ -237,7 +235,7 @@ public class InterpreterRestApiTest extends AbstractTestRestApi {
   }
 
   @Test
-  public void testSettingsCreateWithInvalidName() throws IOException {
+  void testSettingsCreateWithInvalidName() throws IOException {
     String reqBody = "{"
         + "\"name\": \"mdName\","
         + "\"group\": \"md\","
@@ -292,28 +290,50 @@ public class InterpreterRestApiTest extends AbstractTestRestApi {
 
   }
 
-  public void testInterpreterRestart() throws IOException, InterruptedException {
-    Note note = null;
+  @Test
+  void testInterpreterRestart() throws IOException, InterruptedException {
+    String noteId = null;
     try {
       // when: create new note
-      note = TestUtils.getInstance(Notebook.class).createNote("note1", anonymous);
-      note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
-      Paragraph p = note.getLastParagraph();
-      Map config = p.getConfig();
-      config.put("enabled", true);
+      noteId = TestUtils.getInstance(Notebook.class).createNote("note1", anonymous);
 
-      // when: run markdown paragraph
-      p.setConfig(config);
-      p.setText("%md markdown");
-      p.setAuthenticationInfo(anonymous);
-      note.run(p.getId());
-      while (p.getStatus() != Status.FINISHED) {
-        Thread.sleep(100);
+      String pId = TestUtils.getInstance(Notebook.class).processNote(noteId,
+        note -> {
+          Paragraph p = note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
+          Map<String, Object> config = p.getConfig();
+          config.put("enabled", true);
+
+          // when: run markdown paragraph
+          p.setConfig(config);
+          p.setText("%md markdown");
+          p.setAuthenticationInfo(anonymous);
+          note.run(p.getId());
+          return p.getId();
+        });
+
+      Status status = TestUtils.getInstance(Notebook.class).processNote(noteId,
+        note -> {
+          Paragraph p = note.getParagraph(pId);
+          return p.getStatus();
+        });
+      while (status != Status.FINISHED) {
+         Thread.sleep(100);
+         status = TestUtils.getInstance(Notebook.class).processNote(noteId,
+           note -> {
+             Paragraph p = note.getParagraph(pId);
+              return p.getStatus();
+           });
       }
-      assertEquals(p.getReturn().message().get(0).getData(), getSimulatedMarkdownResult("markdown"));
+
+      List<InterpreterSetting> settings = TestUtils.getInstance(Notebook.class).processNote(noteId,
+        note -> {
+          Paragraph p = note.getParagraph(pId);
+          assertEquals(p.getReturn().message().get(0).getData(), getSimulatedMarkdownResult("markdown"));
+          return note.getBindedInterpreterSettings(new ArrayList<>());
+        });
 
       // when: restart interpreter
-      for (InterpreterSetting setting : note.getBindedInterpreterSettings(new ArrayList<>())) {
+      for (InterpreterSetting setting : settings) {
         if (setting.getName().equals("md")) {
           // call restart interpreter API
           CloseableHttpResponse put = httpPut("/interpreter/setting/restart/" + setting.getId(), "");
@@ -324,56 +344,98 @@ public class InterpreterRestApiTest extends AbstractTestRestApi {
       }
 
       // when: run markdown paragraph, again
-      p = note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
-      p.setConfig(config);
-      p.setText("%md markdown restarted");
-      p.setAuthenticationInfo(anonymous);
-      note.run(p.getId());
-      while (p.getStatus() != Status.FINISHED) {
+      String p2Id = TestUtils.getInstance(Notebook.class).processNote(noteId,
+        note -> {
+          Paragraph p = note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
+          Map<String, Object> config = p.getConfig();
+          config.put("enabled", true);
+
+          // when: run markdown paragraph
+          p.setConfig(config);
+          p.setText("%md markdown restarted");
+          p.setAuthenticationInfo(anonymous);
+          note.run(p.getId());
+          return p.getId();
+        });
+
+      status = TestUtils.getInstance(Notebook.class).processNote(noteId,
+        note -> {
+          Paragraph p = note.getParagraph(p2Id);
+          return p.getStatus();
+        });
+      while (status != Status.FINISHED) {
         Thread.sleep(100);
+        status = TestUtils.getInstance(Notebook.class).processNote(noteId,
+          note -> {
+            Paragraph p = note.getParagraph(p2Id);
+            return p.getStatus();
+          });
       }
 
       // then
-      assertEquals(p.getReturn().message().get(0).getData(),
-              getSimulatedMarkdownResult("markdown restarted"));
+      status = TestUtils.getInstance(Notebook.class).processNote(noteId,
+        note -> {
+          Paragraph p = note.getParagraph(p2Id);
+          assertEquals(p.getReturn().message().get(0).getData(),
+            getSimulatedMarkdownResult("markdown restarted"));
+          return null;
+        });
     } finally {
-      if (null != note) {
-        TestUtils.getInstance(Notebook.class).removeNote(note, anonymous);
+      if (null != noteId) {
+        TestUtils.getInstance(Notebook.class).removeNote(noteId, anonymous);
       }
     }
   }
 
   @Test
-  public void testRestartInterpreterPerNote() throws IOException, InterruptedException {
-    Note note = null;
+  void testRestartInterpreterPerNote() throws IOException, InterruptedException {
+    String noteId = null;
     try {
       // when: create new note
-      note = TestUtils.getInstance(Notebook.class).createNote("note2", anonymous);
-      note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
-      Paragraph p = note.getLastParagraph();
-      Map config = p.getConfig();
-      config.put("enabled", true);
+      noteId = TestUtils.getInstance(Notebook.class).createNote("note2", anonymous);
+      String pId = TestUtils.getInstance(Notebook.class).processNote(noteId,
+        note -> {
+          Paragraph p = note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
+          Map<String, Object> config = p.getConfig();
+          config.put("enabled", true);
+          // when: run markdown paragraph.
+          p.setConfig(config);
+          p.setText("%md markdown");
+          p.setAuthenticationInfo(anonymous);
+          note.run(p.getId());
+          return p.getId();
+        });
 
-      // when: run markdown paragraph.
-      p.setConfig(config);
-      p.setText("%md markdown");
-      p.setAuthenticationInfo(anonymous);
-      note.run(p.getId());
-      while (p.getStatus() != Status.FINISHED) {
+      Status status = TestUtils.getInstance(Notebook.class).processNote(noteId,
+        note -> {
+          Paragraph p = note.getParagraph(pId);
+          return p.getStatus();
+        });
+      while (status != Status.FINISHED) {
         Thread.sleep(100);
+        status = TestUtils.getInstance(Notebook.class).processNote(noteId,
+          note -> {
+            Paragraph p = note.getParagraph(pId);
+            return p.getStatus();
+          });
       }
-      assertEquals(p.getReturn().message().get(0).getData(), getSimulatedMarkdownResult("markdown"));
+      List<InterpreterSetting> settings = TestUtils.getInstance(Notebook.class).processNote(noteId,
+        note -> {
+          Paragraph p = note.getParagraph(pId);
+          assertEquals(p.getReturn().message().get(0).getData(), getSimulatedMarkdownResult("markdown"));
+          return note.getBindedInterpreterSettings(new ArrayList<>());
+        });
 
       // when: get md interpreter
       InterpreterSetting mdIntpSetting = null;
-      for (InterpreterSetting setting : note.getBindedInterpreterSettings(new ArrayList<>())) {
+      for (InterpreterSetting setting : settings) {
         if (setting.getName().equals("md")) {
           mdIntpSetting = setting;
           break;
         }
       }
 
-      String jsonRequest = "{\"noteId\":\"" + note.getId() + "\"}";
+      String jsonRequest = "{\"noteId\":\"" + noteId + "\"}";
 
       // Restart isolated mode of Interpreter for note.
       mdIntpSetting.getOption().setPerNote(InterpreterOption.ISOLATED);
@@ -394,21 +456,21 @@ public class InterpreterRestApiTest extends AbstractTestRestApi {
       put.close();
 
     } finally {
-      if (null != note) {
-        TestUtils.getInstance(Notebook.class).removeNote(note, anonymous);
+      if (null != noteId) {
+        TestUtils.getInstance(Notebook.class).removeNote(noteId, anonymous);
       }
     }
   }
 
   @Test
-  public void testListRepository() throws IOException {
+  void testListRepository() throws IOException {
     CloseableHttpResponse get = httpGet("/interpreter/repository");
     assertThat(get, isAllowed());
     get.close();
   }
 
   @Test
-  public void testAddDeleteRepository() throws IOException {
+  void testAddDeleteRepository() throws IOException {
     // Call create repository API
     String repoId = "securecentral";
     String jsonRequest = "{\"id\":\"" + repoId +

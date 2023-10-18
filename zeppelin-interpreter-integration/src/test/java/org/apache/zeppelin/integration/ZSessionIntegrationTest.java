@@ -26,24 +26,24 @@ import org.apache.zeppelin.client.ZSession;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.interpreter.integration.DownloadUtils;
 import org.apache.zeppelin.interpreter.lifecycle.TimeoutLifecycleManager;
-import org.apache.zeppelin.notebook.Note;
 import org.apache.zeppelin.notebook.Notebook;
 import org.apache.zeppelin.rest.AbstractTestRestApi;
 import org.apache.zeppelin.utils.TestUtils;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 public class ZSessionIntegrationTest extends AbstractTestRestApi {
 
@@ -54,7 +54,7 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
   private ClientConfig clientConfig = new ClientConfig("http://localhost:8080");
 
 
-  @BeforeClass
+  @BeforeAll
   public static void setUp() throws Exception {
     System.setProperty(ZeppelinConfiguration.ConfVars.ZEPPELIN_HELIUM_REGISTRY.getVarName(),
             "helium");
@@ -68,17 +68,17 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
     zConf.setProperty(ZeppelinConfiguration.ConfVars.ZEPPELIN_INTERPRETER_LIFECYCLE_MANAGER_TIMEOUT_THRESHOLD.getVarName(), "10000");
 
     notebook = TestUtils.getInstance(Notebook.class);
-    sparkHome = DownloadUtils.downloadSpark("2.4.4", "2.7");
-    flinkHome = DownloadUtils.downloadFlink("1.10.1", "2.11");
+    sparkHome = DownloadUtils.downloadSpark("3.4.1", "3");
+    flinkHome = DownloadUtils.downloadFlink("1.13.2", "2.12");
   }
 
-  @AfterClass
+  @AfterAll
   public static void destroy() throws Exception {
     AbstractTestRestApi.shutDown();
   }
 
   @Test
-  public void testZSession_Shell() throws Exception {
+  void testZSession_Shell() throws Exception {
     ZSession session = ZSession.builder()
             .setClientConfig(clientConfig)
             .setInterpreter("sh")
@@ -89,12 +89,16 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
       assertNull(session.getWeburl());
       assertNotNull(session.getNoteId());
 
-      Note note = notebook.getNote(session.getNoteId());
-      assertEquals(2, note.getParagraphCount());
-      assertTrue(note.getParagraph(0).getText(), note.getParagraph(0).getText().startsWith("%sh.conf"));
+      notebook.processNote(session.getNoteId(),
+        note -> {
+          assertEquals(2, note.getParagraphCount());
+          assertTrue(note.getParagraph(0).getText().startsWith("%sh.conf"), note.getParagraph(0).getText());
+          return null;
+        });
+
 
       ExecuteResult result = session.execute("pwd");
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
       assertEquals(1, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
 
@@ -102,20 +106,23 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
       assertEquals(Status.ERROR, result.getStatus());
       assertEquals(2, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
-      assertTrue(result.getResults().get(0).getData(), result.getResults().get(0).getData().contains("command not found"));
+      assertTrue(result.getResults().get(0).getData().contains("command not found"), result.getResults().get(0).getData());
       assertEquals("TEXT", result.getResults().get(1).getType());
-      assertTrue(result.getResults().get(1).getData(), result.getResults().get(1).getData().contains("ExitValue"));
+      assertTrue(result.getResults().get(1).getData().contains("ExitValue"), result.getResults().get(1).getData());
 
-      assertEquals(4, note.getParagraphCount());
-      assertEquals("%sh invalid_command", note.getParagraph(3).getText());
-
+      notebook.processNote(session.getNoteId(),
+        note -> {
+          assertEquals(4, note.getParagraphCount());
+          assertEquals("%sh invalid_command", note.getParagraph(3).getText());
+          return null;
+        });
     } finally {
       session.stop();
     }
   }
 
   @Test
-  public void testZSession_Shell_Submit() throws Exception {
+  void testZSession_Shell_Submit() throws Exception {
     ZSession session = ZSession.builder()
             .setClientConfig(clientConfig)
             .setInterpreter("sh")
@@ -126,14 +133,17 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
       assertNull(session.getWeburl());
       assertNotNull(session.getNoteId());
 
-      Note note = notebook.getNote(session.getNoteId());
-      assertEquals(2, note.getParagraphCount());
-      assertTrue(note.getParagraph(0).getText(), note.getParagraph(0).getText().startsWith("%sh.conf"));
+      notebook.processNote(session.getNoteId(),
+        note -> {
+          assertEquals(2, note.getParagraphCount());
+          assertTrue(note.getParagraph(0).getText().startsWith("%sh.conf"), note.getParagraph(0).getText());
+          return null;
+        });
 
       ExecuteResult result = session.submit("sleep 10\npwd");
-      assertFalse("Status is: " + result.getStatus().toString(), result.getStatus().isCompleted());
+      assertFalse(result.getStatus().isCompleted(), "Status is: " + result.getStatus().toString());
       result = session.waitUntilFinished(result.getStatementId());
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
       assertEquals(1, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
 
@@ -142,20 +152,23 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
       assertEquals(Status.ERROR, result.getStatus());
       assertEquals(2, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
-      assertTrue(result.getResults().get(0).getData(), result.getResults().get(0).getData().contains("command not found"));
+      assertTrue(result.getResults().get(0).getData().contains("command not found"), result.getResults().get(0).getData());
       assertEquals("TEXT", result.getResults().get(1).getType());
-      assertTrue(result.getResults().get(1).getData(), result.getResults().get(1).getData().contains("ExitValue"));
+      assertTrue(result.getResults().get(1).getData().contains("ExitValue"), result.getResults().get(1).getData());
 
-      assertEquals(4, note.getParagraphCount());
-      assertEquals("%sh invalid_command", note.getParagraph(3).getText());
-
+      notebook.processNote(session.getNoteId(),
+        note -> {
+          assertEquals(4, note.getParagraphCount());
+          assertEquals("%sh invalid_command", note.getParagraph(3).getText());
+          return null;
+        });
     } finally {
       session.stop();
     }
   }
 
   @Test
-  public void testZSession_Spark() throws Exception {
+  void testZSession_Spark() throws Exception {
     Map<String, String> intpProperties = new HashMap<>();
     intpProperties.put("SPARK_HOME", sparkHome);
     intpProperties.put("spark.master", "local[*]");
@@ -173,14 +186,14 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
 
       // scala
       ExecuteResult result = session.execute("sc.version");
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
       assertEquals(1, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
-      assertTrue(result.getResults().get(0).getData(), result.getResults().get(0).getData().contains("2.4.4"));
+      assertTrue(result.getResults().get(0).getData().contains("3.4.1"), result.getResults().get(0).getData());
       assertEquals(0, result.getJobUrls().size());
 
       // pyspark
-      result = session.execute("pyspark", "df = spark.createDataFrame([(1,'a'),(2,'b')])\ndf.registerTempTable('df')\ndf.show()");
+      result = session.execute("pyspark", "df = spark.createDataFrame([(1,'a'),(2,'b')])\ndf.createOrReplaceTempView('df')\ndf.show()");
       assertEquals(Status.FINISHED, result.getStatus());
       assertEquals(1, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
@@ -198,15 +211,15 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
       assertEquals(Status.FINISHED, result.getStatus());
       assertEquals(1, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
-      assertTrue(result.getResults().get(0).getData(), result.getResults().get(0).getData().contains("eruptions waiting"));
-      assertEquals(2, result.getJobUrls().size());
+      assertTrue(result.getResults().get(0).getData().contains("eruptions waiting"), result.getResults().get(0).getData());
+      assertTrue(result.getJobUrls().size() > 0);
 
       // spark sql
       result = session.execute("sql", "select * from df");
       assertEquals(Status.FINISHED, result.getStatus());
       assertEquals(1, result.getResults().size());
       assertEquals("TABLE", result.getResults().get(0).getType());
-      assertTrue(result.getResults().get(0).getData(), result.getResults().get(0).getData().contains("1\ta\n2\tb\n"));
+      assertTrue(result.getResults().get(0).getData().contains("1\ta\n2\tb\n"), result.getResults().get(0).getData());
       assertTrue(result.getJobUrls().size() > 0);
 
       // spark invalid sql
@@ -214,7 +227,7 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
       assertEquals(Status.ERROR, result.getStatus());
       assertEquals(1, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
-      assertTrue(result.getResults().get(0).getData(), result.getResults().get(0).getData().contains("Table or view not found"));
+      assertTrue(result.getResults().get(0).getData().contains("The table or view `unknown_table` cannot be found"), result.getResults().get(0).getData());
       assertEquals(0, result.getJobUrls().size());
 
     } finally {
@@ -223,7 +236,7 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
   }
 
   @Test
-  public void testZSession_Spark_Submit() throws Exception {
+  void testZSession_Spark_Submit() throws Exception {
     Map<String, String> intpProperties = new HashMap<>();
     intpProperties.put("SPARK_HOME", sparkHome);
     intpProperties.put("spark.master", "local[*]");
@@ -242,16 +255,16 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
       // scala
       ExecuteResult result = session.submit("sc.version");
       result = session.waitUntilFinished(result.getStatementId());
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
       assertEquals(1, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
-      assertTrue(result.getResults().get(0).getData(), result.getResults().get(0).getData().contains("2.4.4"));
+      assertTrue(result.getResults().get(0).getData().contains("3.4.1"), result.getResults().get(0).getData());
       assertEquals(0, result.getJobUrls().size());
 
       // pyspark
-      result = session.submit("pyspark", "df = spark.createDataFrame([(1,'a'),(2,'b')])\ndf.registerTempTable('df')\ndf.show()");
+      result = session.submit("pyspark", "df = spark.createDataFrame([(1,'a'),(2,'b')])\ndf.createOrReplaceTempView('df')\ndf.show()");
       result = session.waitUntilFinished(result.getStatementId());
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
       assertEquals(1, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
       assertEquals(
@@ -269,8 +282,8 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
       assertEquals(Status.FINISHED, result.getStatus());
       assertEquals(1, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
-      assertTrue(result.getResults().get(0).getData(), result.getResults().get(0).getData().contains("eruptions waiting"));
-      assertEquals(2, result.getJobUrls().size());
+      assertTrue(result.getResults().get(0).getData().contains("eruptions waiting"), result.getResults().get(0).getData());
+      assertTrue(result.getJobUrls().size() > 0);
 
       // spark sql
       result = session.submit("sql", "select * from df");
@@ -278,7 +291,7 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
       assertEquals(Status.FINISHED, result.getStatus());
       assertEquals(1, result.getResults().size());
       assertEquals("TABLE", result.getResults().get(0).getType());
-      assertTrue(result.getResults().get(0).getData(), result.getResults().get(0).getData().contains("1\ta\n2\tb\n"));
+      assertTrue(result.getResults().get(0).getData().contains("1\ta\n2\tb\n"), result.getResults().get(0).getData());
       assertTrue(result.getJobUrls().size() > 0);
 
       // spark invalid sql
@@ -287,17 +300,17 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
       assertEquals(Status.ERROR, result.getStatus());
       assertEquals(1, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
-      assertTrue(result.getResults().get(0).getData(), result.getResults().get(0).getData().contains("Table or view not found"));
+      assertTrue(result.getResults().get(0).getData().contains("The table or view `unknown_table` cannot be found"), result.getResults().get(0).getData());
       assertEquals(0, result.getJobUrls().size());
 
       // cancel
       result = session.submit("sc.range(1,100).map(e=>{Thread.sleep(1000);e}).collect()");
-      assertFalse("Status is: " + result.getStatus().toString(), result.getStatus().isCompleted());
+      assertFalse(result.getStatus().isCompleted(), "Status is: " + result.getStatus().toString());
       result = session.waitUntilRunning(result.getStatementId());
       session.cancel(result.getStatementId());
-      assertEquals(result.toString(), Status.RUNNING, result.getStatus());
+      assertEquals(Status.RUNNING, result.getStatus(), result.toString());
       result = session.waitUntilFinished(result.getStatementId());
-      assertEquals(result.toString(), Status.ABORT, result.getStatus());
+      assertEquals(Status.ABORT, result.getStatus(), result.toString());
 
     } finally {
       session.stop();
@@ -305,7 +318,7 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
   }
 
   @Test
-  public void testZSession_Flink() throws Exception {
+  void testZSession_Flink() throws Exception {
     Map<String, String> intpProperties = new HashMap<>();
     intpProperties.put("FLINK_HOME", flinkHome);
 
@@ -322,19 +335,19 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
 
       // scala
       ExecuteResult result = session.execute("val data = benv.fromElements(1, 2, 3)\ndata.collect()");
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
       assertEquals(1, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
-      assertTrue(result.getResults().get(0).getData(), result.getResults().get(0).getData().contains("1, 2, 3"));
+      assertTrue(result.getResults().get(0).getData().contains("1, 2, 3"), result.getResults().get(0).getData());
 
       // sql
       result = session.execute(getInitStreamScript(200));
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
       Map<String, String> localProperties = new HashMap<>();
       localProperties.put("type", "update");
       localProperties.put("parallelism", "2");
       result = session.execute("ssql", localProperties, "select url, count(1) as pv from log group by url");
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
 
     } finally {
       session.stop();
@@ -342,7 +355,7 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
   }
 
   @Test
-  public void testZSession_Flink_Submit() throws Exception {
+  void testZSession_Flink_Submit() throws Exception {
     Map<String, String> intpProperties = new HashMap<>();
     intpProperties.put("FLINK_HOME", flinkHome);
 
@@ -360,37 +373,37 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
       // scala
       ExecuteResult result = session.submit("val data = benv.fromElements(1, 2, 3)\ndata.collect()");
       result = session.waitUntilFinished(result.getStatementId());
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
       assertEquals(1, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
-      assertTrue(result.getResults().get(0).getData(), result.getResults().get(0).getData().contains("1, 2, 3"));
+      assertTrue(result.getResults().get(0).getData().contains("1, 2, 3"), result.getResults().get(0).getData());
 
       // sql
       result = session.submit(getInitStreamScript(200));
       result = session.waitUntilFinished(result.getStatementId());
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
       Map<String, String> localProperties = new HashMap<>();
       localProperties.put("type", "update");
       result = session.submit("ssql", localProperties, "select url, count(1) as pv from log group by url");
-      assertFalse("Status is: " + result.getStatus().toString(), result.getStatus().isCompleted());
+      assertFalse(result.getStatus().isCompleted(), "Status is: " + result.getStatus().toString());
       result = session.waitUntilFinished(result.getStatementId());
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
 
       // cancel
       result = session.submit("ssql", localProperties, "select url, count(1) as pv from log group by url");
-      assertFalse("Status is: " + result.getStatus().toString(), result.getStatus().isCompleted());
+      assertFalse(result.getStatus().isCompleted(), "Status is: " + result.getStatus().toString());
       result = session.waitUntilRunning(result.getStatementId());
       session.cancel(result.getStatementId());
-      assertEquals(result.toString(), Status.RUNNING, result.getStatus());
+      assertEquals(Status.RUNNING, result.getStatus(), result.toString());
       result = session.waitUntilFinished(result.getStatementId());
-      assertEquals(result.toString(), Status.ABORT, result.getStatus());
+      assertEquals(Status.ABORT, result.getStatus(), result.toString());
     } finally {
       session.stop();
     }
   }
 
   @Test
-  public void testZSession_Python() throws Exception {
+  void testZSession_Python() throws Exception {
     Map<String, String> intpProperties = new HashMap<>();
     intpProperties.put("zeppelin.python.gatewayserver_address", "127.0.0.1");
 
@@ -424,7 +437,7 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
                                "for i in range(1,10):\n" +
                                "\tprint(i)\n" +
                                "\ttime.sleep(1)");
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
       assertEquals(1, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
 
@@ -432,7 +445,7 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
       localProperties.put("key 1", "hello world"); // contains whitespace
       localProperties.put("key,2", "a,b"); // contains comma
       result = session.execute("1+1", localProperties);
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
       assertEquals(1, result.getResults().size());
       assertEquals("TEXT", result.getResults().get(0).getType());
     } finally {
@@ -441,7 +454,7 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
   }
 
   @Test
-  public void testZSessionCleanup() throws Exception {
+  void testZSessionCleanup() throws Exception {
     Map<String, String> intpProperties = new HashMap<>();
     intpProperties.put("zeppelin.python.gatewayserver_address", "127.0.0.1");
 
@@ -456,10 +469,10 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
       assertNull(session.getWeburl());
       assertNotNull(session.getNoteId());
 
-      assertTrue(notebook.getAllNotes().size() > 0);
+      assertTrue(notebook.getNotesInfo().size() > 0);
 
       Thread.sleep(30 * 1000);
-      assertEquals(0, notebook.getAllNotes().size());
+      assertEquals(0, notebook.getNotesInfo().size());
 
       try {
         session.execute("1/0");
@@ -499,14 +512,14 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
 
       // show databases
       ExecuteResult result = session.execute("show databases");
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
       assertEquals(1, result.getResults().size());
       assertEquals("TABLE", result.getResults().get(0).getType());
-      assertTrue(result.getResults().get(0).getData(), result.getResults().get(0).getData().contains("Database"));
+      assertTrue(result.getResults().get(0).getData().contains("Database"), result.getResults().get(0).getData());
 
       // select statement
       result = session.execute("SELECT 1 as c1, 2 as c2");
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
       assertEquals(1, result.getResults().size());
       assertEquals("TABLE", result.getResults().get(0).getType());
       assertEquals("c1\tc2\n1\t2\n", result.getResults().get(0).getData());
@@ -538,15 +551,15 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
       // show databases
       ExecuteResult result = session.submit("show databases");
       result = session.waitUntilFinished(result.getStatementId());
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
       assertEquals(1, result.getResults().size());
       assertEquals("TABLE", result.getResults().get(0).getType());
-      assertTrue(result.getResults().get(0).getData(), result.getResults().get(0).getData().contains("Database"));
+      assertTrue(result.getResults().get(0).getData().contains("Database"), result.getResults().get(0).getData());
 
       // select statement
       result = session.submit("SELECT 1 as c1, 2 as c2");
       result = session.waitUntilFinished(result.getStatementId());
-      assertEquals(result.toString(), Status.FINISHED, result.getStatus());
+      assertEquals(Status.FINISHED, result.getStatus(), result.toString());
       assertEquals(1, result.getResults().size());
       assertEquals("TABLE", result.getResults().get(0).getType());
       assertEquals("c1\tc2\n1\t2\n", result.getResults().get(0).getData());
@@ -557,7 +570,7 @@ public class ZSessionIntegrationTest extends AbstractTestRestApi {
   }
 
   public static String getInitStreamScript(int sleep_interval) throws IOException {
-    return IOUtils.toString(ZSessionIntegrationTest.class.getResource("/init_stream.scala"))
+    return IOUtils.toString(ZSessionIntegrationTest.class.getResource("/init_stream.scala"), StandardCharsets.UTF_8)
             .replace("{{sleep_interval}}", sleep_interval + "");
   }
 }

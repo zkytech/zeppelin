@@ -23,17 +23,21 @@ import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.display.AngularObjectRegistryListener;
 import org.apache.zeppelin.helium.ApplicationEventListener;
 import org.apache.zeppelin.interpreter.remote.RemoteInterpreterProcessListener;
+import org.apache.zeppelin.notebook.AuthorizationService;
 import org.apache.zeppelin.notebook.Note;
+import org.apache.zeppelin.notebook.NoteManager;
 import org.apache.zeppelin.notebook.Notebook;
-import org.junit.After;
-import org.junit.Before;
+import org.apache.zeppelin.notebook.repo.InMemoryNotebookRepo;
+import org.apache.zeppelin.notebook.repo.NotebookRepo;
+import org.apache.zeppelin.user.Credentials;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * This class will load configuration files under
@@ -48,14 +52,14 @@ public abstract class AbstractInterpreterTest {
 
   protected InterpreterSettingManager interpreterSettingManager;
   protected InterpreterFactory interpreterFactory;
-  protected Notebook mockNotebook;
+  protected Notebook notebook;
   protected File zeppelinHome;
   protected File interpreterDir;
   protected File confDir;
   protected File notebookDir;
   protected ZeppelinConfiguration conf;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     // copy the resources files to a temp folder
     zeppelinHome = new File("..");
@@ -79,15 +83,18 @@ public abstract class AbstractInterpreterTest {
     System.setProperty(ZeppelinConfiguration.ConfVars.ZEPPELIN_INTERPRETER_GROUP_DEFAULT.getVarName(), "test");
 
     conf = ZeppelinConfiguration.create();
+    NotebookRepo notebookRepo = new InMemoryNotebookRepo();
+    NoteManager noteManager = new NoteManager(notebookRepo, conf);
+    AuthorizationService authorizationService = new AuthorizationService(noteManager, conf);
     interpreterSettingManager = new InterpreterSettingManager(conf,
         mock(AngularObjectRegistryListener.class), mock(RemoteInterpreterProcessListener.class), mock(ApplicationEventListener.class));
     interpreterFactory = new InterpreterFactory(interpreterSettingManager);
-
-    mockNotebook = mock(Notebook.class);
-    interpreterSettingManager.setNotebook(mockNotebook);
+    Credentials credentials = new Credentials(conf);
+    notebook = new Notebook(conf, authorizationService, notebookRepo, noteManager, interpreterFactory, interpreterSettingManager, credentials);
+    interpreterSettingManager.setNotebook(notebook);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     if (interpreterSettingManager != null) {
       interpreterSettingManager.close();

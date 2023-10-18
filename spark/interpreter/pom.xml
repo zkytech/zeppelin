@@ -23,7 +23,7 @@
   <parent>
     <artifactId>spark-parent</artifactId>
     <groupId>org.apache.zeppelin</groupId>
-    <version>0.10.1</version>
+    <version>0.11.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -40,6 +40,25 @@
     <maven.aeither.provider.version>3.0.3</maven.aeither.provider.version>
     <wagon.version>2.7</wagon.version>
 
+    <datanucleus.rdbms.version>4.1.19</datanucleus.rdbms.version>
+    <datanucleus.apijdo.version>4.2.4</datanucleus.apijdo.version>
+    <datanucleus.core.version>4.1.17</datanucleus.core.version>
+
+    <!-- spark versions -->
+    <spark.version>3.4.1</spark.version>
+    <protobuf.version>3.21.12</protobuf.version>
+    <py4j.version>0.10.9.7</py4j.version>
+    <spark.scala.version>2.12.17</spark.scala.version>
+    <spark.scala.binary.version>2.12</spark.scala.binary.version>
+
+    <spark.archive>spark-${spark.version}</spark.archive>
+    <spark.src.download.url>
+      https://archive.apache.org/dist/spark/${spark.archive}/${spark.archive}.tgz
+    </spark.src.download.url>
+    <spark.bin.download.url>
+      https://archive.apache.org/dist/spark/${spark.archive}/${spark.archive}-bin-without-hadoop.tgz
+    </spark.bin.download.url>
+
     <scala.compile.version>${spark.scala.version}</scala.compile.version>
     <!-- settings -->
     <pyspark.test.exclude>**/PySparkInterpreterMatplotlibTest.java</pyspark.test.exclude>
@@ -49,50 +68,20 @@
   <dependencies>
     <dependency>
       <groupId>org.apache.zeppelin</groupId>
-      <artifactId>zeppelin-interpreter</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.zeppelin</groupId>
       <artifactId>zeppelin-display</artifactId>
       <version>${project.version}</version>
       <exclusions>
+        <!-- use scala-xml from spark -->
         <exclusion>
-          <groupId>org.scala-lang</groupId>
-          <artifactId>scala-library</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.scala-lang</groupId>
-          <artifactId>scala-compiler</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.scala-lang</groupId>
-          <artifactId>scalap</artifactId>
+          <groupId>org.scala-lang.modules</groupId>
+          <artifactId>scala-xml_${scala.binary.version}</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
 
     <dependency>
       <groupId>org.apache.zeppelin</groupId>
-      <artifactId>spark1-shims</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.zeppelin</groupId>
-      <artifactId>spark2-shims</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.zeppelin</groupId>
       <artifactId>spark3-shims</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.zeppelin</groupId>
-      <artifactId>zeppelin-kotlin</artifactId>
       <version>${project.version}</version>
     </dependency>
 
@@ -116,10 +105,6 @@
         <exclusion>
           <groupId>net.sf.py4j</groupId>
           <artifactId>py4j</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>io.netty</groupId>
-          <artifactId>*</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
@@ -151,15 +136,11 @@
       <exclusions>
         <exclusion>
           <groupId>org.apache.spark</groupId>
-          <artifactId>spark-core_2.11</artifactId>
+          <artifactId>spark-core_2.12</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
-    <dependency>
-      <groupId>com.alibaba</groupId>
-      <artifactId>fastjson</artifactId>
-      <version>2.0.7</version>
-    </dependency>
+
     <dependency>
       <groupId>org.apache.zeppelin</groupId>
       <artifactId>zeppelin-jupyter-interpreter</artifactId>
@@ -171,12 +152,9 @@
           <groupId>net.sf.py4j</groupId>
           <artifactId>py4j</artifactId>
         </exclusion>
-        <exclusion>
-          <groupId>io.netty</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
       </exclusions>
     </dependency>
+
     <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>r</artifactId>
@@ -188,21 +166,7 @@
         </exclusion>
       </exclusions>
     </dependency>
-    <dependency>
-      <groupId>org.mongodb.spark</groupId>
-      <artifactId>mongo-spark-connector_2.11</artifactId>
-      <version>2.4.4</version>
-      <exclusions>
-<!--        <exclusion>-->
-<!--          <groupId>org.apache.spark</groupId>-->
-<!--          <artifactId>spark-sql_${spark.scala.binary.version}</artifactId>-->
-<!--        </exclusion>-->
-<!--        <exclusion>-->
-<!--          <groupId>org.apache.spark</groupId>-->
-<!--          <artifactId>spark-catalyst_${spark.scala.binary.version}</artifactId>-->
-<!--        </exclusion>-->
-      </exclusions>
-    </dependency>
+
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-repl_${spark.scala.binary.version}</artifactId>
@@ -226,8 +190,25 @@
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-client</artifactId>
-      <version>2.6.0</version>
+      <version>${hadoop.version}</version>
       <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-common</artifactId>
+      <version>${hadoop.version}</version>
+      <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>com.google.protobuf</groupId>
+          <artifactId>protobuf-java</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>commons-lang</groupId>
+          <artifactId>commons-lang</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -285,13 +266,6 @@
 
     <!--test libraries-->
     <dependency>
-      <groupId>org.scalatest</groupId>
-      <artifactId>scalatest_${spark.scala.binary.version}</artifactId>
-      <version>${scalatest.version}</version>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
       <groupId>org.datanucleus</groupId>
       <artifactId>datanucleus-core</artifactId>
       <version>${datanucleus.core.version}</version>
@@ -319,18 +293,6 @@
     </dependency>
 
     <dependency>
-      <groupId>org.powermock</groupId>
-      <artifactId>powermock-api-mockito</artifactId>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>org.powermock</groupId>
-      <artifactId>powermock-module-junit4</artifactId>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
       <groupId>net.jodah</groupId>
       <artifactId>concurrentunit</artifactId>
       <version>0.4.4</version>
@@ -343,35 +305,17 @@
       <version>1.4.9</version>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>org.apache.zeppelin</groupId>
-      <artifactId>zeppelin-zengine</artifactId>
-      <version>0.10.1</version>
-      <scope>compile</scope>
-    </dependency>
 
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <scope>test</scope>
+    </dependency>
 
   </dependencies>
 
   <build>
     <plugins>
-      <plugin>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>enforce</id>
-            <phase>none</phase>
-          </execution>
-        </executions>
-
-        <configuration>
-          <rules>
-            <requireJavaVersion>
-              <version>1.7</version>
-            </requireJavaVersion>
-          </rules>
-        </configuration>
-      </plugin>
 
       <plugin>
         <groupId>com.googlecode.maven-download-plugin</groupId>
@@ -465,11 +409,6 @@
       </plugin>
 
       <plugin>
-        <groupId>org.scalatest</groupId>
-        <artifactId>scalatest-maven-plugin</artifactId>
-      </plugin>
-
-      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
@@ -547,4 +486,82 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+
+    <!-- profile spark-scala-x only affect the unit test in spark/interpreter module -->
+
+    <profile>
+      <id>spark-scala-2.13</id>
+      <properties>
+        <spark.scala.version>2.13.8</spark.scala.version>
+        <spark.scala.binary.version>2.13</spark.scala.binary.version>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>spark-scala-2.12</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <spark.scala.version>2.12.17</spark.scala.version>
+        <spark.scala.binary.version>2.12</spark.scala.binary.version>
+      </properties>
+    </profile>
+
+    <!-- profile spark-x only affect spark version used in test -->
+    <profile>
+      <id>spark-3.5</id>
+      <properties>
+        <datanucleus.core.version>4.1.17</datanucleus.core.version>
+        <datanucleus.rdbms.version>4.1.19</datanucleus.rdbms.version>
+        <datanucleus.apijdo.version>4.2.4</datanucleus.apijdo.version>
+        <spark.version>3.5.0</spark.version>
+        <protobuf.version>3.21.12</protobuf.version>
+        <py4j.version>0.10.9.7</py4j.version>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>spark-3.4</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <datanucleus.core.version>4.1.17</datanucleus.core.version>
+        <datanucleus.rdbms.version>4.1.19</datanucleus.rdbms.version>
+        <datanucleus.apijdo.version>4.2.4</datanucleus.apijdo.version>
+        <spark.version>3.4.1</spark.version>
+        <protobuf.version>3.21.12</protobuf.version>
+        <py4j.version>0.10.9.7</py4j.version>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>spark-3.3</id>
+      <properties>
+        <datanucleus.core.version>4.1.17</datanucleus.core.version>
+        <datanucleus.rdbms.version>4.1.19</datanucleus.rdbms.version>
+        <datanucleus.apijdo.version>4.2.4</datanucleus.apijdo.version>
+        <spark.version>3.3.3</spark.version>
+        <protobuf.version>2.5.0</protobuf.version>
+        <py4j.version>0.10.9.5</py4j.version>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>spark-3.2</id>
+      <properties>
+        <datanucleus.core.version>4.1.17</datanucleus.core.version>
+        <datanucleus.rdbms.version>4.1.19</datanucleus.rdbms.version>
+        <datanucleus.apijdo.version>4.2.4</datanucleus.apijdo.version>
+        <spark.version>3.2.4</spark.version>
+        <protobuf.version>2.5.0</protobuf.version>
+        <py4j.version>0.10.9.5</py4j.version>
+      </properties>
+    </profile>
+
+  </profiles>
+
 </project>

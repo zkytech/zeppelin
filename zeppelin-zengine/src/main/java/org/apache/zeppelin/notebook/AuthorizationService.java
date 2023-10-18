@@ -32,10 +32,10 @@ import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * This class is responsible for maintain notes authorization info. And provide api for
@@ -50,30 +50,31 @@ public class AuthorizationService implements ClusterEventListener {
   private ConfigStorage configStorage;
 
   // contains roles for each user (username --> roles)
-  private Map<String, Set<String>> userRoles = new HashMap<>();
+  private Map<String, Set<String>> userRoles = new ConcurrentHashMap<>();
 
   // cached note permission info. (noteId --> NoteAuth)
-  private Map<String, NoteAuth> notesAuth = new HashMap<>();
+  private Map<String, NoteAuth> notesAuth = new ConcurrentHashMap<>();
 
   @Inject
   public AuthorizationService(NoteManager noteManager, ZeppelinConfiguration conf) {
+    LOGGER.info("Injected AuthorizationService: {}", this);
     this.conf = conf;
     try {
       this.configStorage = ConfigStorage.getInstance(conf);
       // init notesAuth by reading notebook-authorization.json
       NotebookAuthorizationInfoSaving authorizationInfoSaving = configStorage.loadNotebookAuthorization();
       if (authorizationInfoSaving != null) {
-        for (Map.Entry<String, Map<String, Set<String>>> entry : authorizationInfoSaving.authInfo.entrySet()) {
+        for (Map.Entry<String, Map<String, Set<String>>> entry : authorizationInfoSaving.getAuthInfo().entrySet()) {
           String noteId = entry.getKey();
           Map<String, Set<String>> permissions = entry.getValue();
-          notesAuth.put(noteId, new NoteAuth(noteId, permissions));
+          notesAuth.put(noteId, new NoteAuth(noteId, permissions, conf));
         }
       }
 
       // initialize NoteAuth for the notes without permission set explicitly.
       for (String noteId : noteManager.getNotesInfo().keySet()) {
         if (!notesAuth.containsKey(noteId)) {
-          notesAuth.put(noteId, new NoteAuth(noteId));
+          notesAuth.put(noteId, new NoteAuth(noteId, conf));
         }
       }
     } catch (IOException e) {
@@ -88,28 +89,21 @@ public class AuthorizationService implements ClusterEventListener {
    * @param subject
    * @throws IOException
    */
-  public void createNoteAuth(String noteId, AuthenticationInfo subject) throws IOException {
-    NoteAuth noteAuth =  new NoteAuth(noteId, subject);
-    this.notesAuth.put(noteId, noteAuth);
-  }
-
-  public void cloneNoteMeta(String noteId, String sourceNoteId, AuthenticationInfo subject) throws IOException {
-    NoteAuth noteAuth =  new NoteAuth(noteId, subject);
+  public void createNoteAuth(String noteId, AuthenticationInfo subject) {
+    NoteAuth noteAuth = new NoteAuth(noteId, subject, conf);
     this.notesAuth.put(noteId, noteAuth);
   }
 
   /**
    * Persistent NoteAuth
    *
-   * @param noteId
-   * @param subject
    * @throws IOException
    */
-  public void saveNoteAuth(String noteId, AuthenticationInfo subject) throws IOException {
+  public synchronized void saveNoteAuth() throws IOException {
     configStorage.save(new NotebookAuthorizationInfoSaving(this.notesAuth));
   }
 
-  public void removeNoteAuth(String noteId) throws IOException {
+  public void removeNoteAuth(String noteId) {
     this.notesAuth.remove(noteId);
   }
 

@@ -151,28 +151,29 @@ The other more flexible option is to use the LdapRealm. It allows for mapping of
 [main]
 ldapRealm=org.apache.zeppelin.realm.LdapRealm
 
-ldapRealm.contextFactory.authenticationMechanism=simple
-ldapRealm.contextFactory.url=ldap://localhost:33389
-ldapRealm.userDnTemplate=uid={0},ou=people,dc=hadoop,dc=apache,dc=org
+ldapRealm.contextFactory.authenticationMechanism = simple
+ldapRealm.contextFactory.url = ldap://localhost:33389
+ldapRealm.userDnTemplate = uid={0},ou=people,dc=hadoop,dc=apache,dc=org
 # Ability to set ldap paging Size if needed default is 100
 ldapRealm.pagingSize = 200
-ldapRealm.authorizationEnabled=true
-ldapRealm.contextFactory.systemAuthenticationMechanism=simple
-ldapRealm.searchBase=dc=hadoop,dc=apache,dc=org
+ldapRealm.authorizationEnabled = true
+ldapRealm.searchBase = dc=hadoop,dc=apache,dc=org
 ldapRealm.userSearchBase = dc=hadoop,dc=apache,dc=org
 ldapRealm.groupSearchBase = ou=groups,dc=hadoop,dc=apache,dc=org
-ldapRealm.groupObjectClass=groupofnames
+ldapRealm.groupObjectClass = groupofnames
 # Allow userSearchAttribute to be customized
+# If userSearchAttributeName was configured, Zeppelin would use userObjectClass and userSearchAttributeName to search for an actual user DN
+# Otherwise, memberAttributeValueTemplate would be used to construct the user DN.
 ldapRealm.userSearchAttributeName = sAMAccountName
-ldapRealm.memberAttribute=member
+ldapRealm.memberAttribute = member
 # force usernames returned from ldap to lowercase useful for AD
 ldapRealm.userLowerCase = true
 # ability set searchScopes subtree (default), one, base
 ldapRealm.userSearchScope = subtree;
 ldapRealm.groupSearchScope = subtree;
-ldapRealm.memberAttributeValueTemplate=cn={0},ou=people,dc=hadoop,dc=apache,dc=org
-ldapRealm.contextFactory.systemUsername=uid=guest,ou=people,dc=hadoop,dc=apache,dc=org
-ldapRealm.contextFactory.systemPassword=S{ALIAS=ldcSystemPassword}
+ldapRealm.memberAttributeValueTemplate = cn={0},ou=people,dc=hadoop,dc=apache,dc=org
+ldapRealm.contextFactory.systemUsername = uid=guest,ou=people,dc=hadoop,dc=apache,dc=org
+ldapRealm.contextFactory.systemPassword = S{ALIAS=ldcSystemPassword}
 # enable support for nested groups using the LDAP_MATCHING_RULE_IN_CHAIN operator
 ldapRealm.groupSearchEnableMatchingRuleInChain = true
 # optional mapping from physical groups to logical application roles
@@ -180,7 +181,7 @@ ldapRealm.rolesByGroup = LDN_USERS: user_role, NYK_USERS: user_role, HKG_USERS: 
 # optional list of roles that are allowed to authenticate. Incase not present all groups are allowed to authenticate (login).
 # This changes nothing for url specific permissions that will continue to work as specified in [urls].
 ldapRealm.allowedRolesForAuthentication = admin_role,user_role
-ldapRealm.permissionsByRole= user_role = *:ToDoItemsJdo:*:*, *:ToDoItem:*:*; admin_role = *
+ldapRealm.permissionsByRole = user_role = *:ToDoItemsJdo:*:*, *:ToDoItem:*:*; admin_role = *
 securityManager.sessionManager = $sessionManager
 securityManager.realms = $ldapRealm
 ```
@@ -199,8 +200,8 @@ ldapRealm.hadoopSecurityCredentialPath = jceks://file/user/zeppelin/conf/zeppeli
 
 ### PAM
 [PAM](https://en.wikipedia.org/wiki/Pluggable_authentication_module) authentication support allows the reuse of existing authentication
-moduls on the host where Zeppelin is running. On a typical system modules are configured per service for example sshd, passwd, etc. under `/etc/pam.d/`. You can
-either reuse one of these services or create your own for Zeppelin. Activiting PAM authentication requires two parameters:
+modules on the host where Zeppelin is running. On a typical system modules are configured per service for example sshd, passwd, etc. under `/etc/pam.d/`. You can
+either reuse one of these services or create your own for Zeppelin. Activating PAM authentication requires two parameters:
  1. realm: The Shiro realm being used
  2. service: The service configured under `/etc/pam.d/` to be used. The name here needs to be the same as the file name under `/etc/pam.d/`
 
@@ -210,23 +211,10 @@ either reuse one of these services or create your own for Zeppelin. Activiting P
  pamRealm.service=sshd
 ```
 
-### ZeppelinHub
-[ZeppelinHub](https://www.zeppelinhub.com) is a service that synchronize your Apache Zeppelin notebooks and enables you to collaborate easily.
-
-To enable login with your ZeppelinHub credential, apply the following change in `conf/shiro.ini` under `[main]` section.
-
-```
-### A sample for configuring ZeppelinHub Realm
-zeppelinHubRealm = org.apache.zeppelin.realm.ZeppelinHubRealm
-## Url of ZeppelinHub
-zeppelinHubRealm.zeppelinhubUrl = https://www.zeppelinhub.com
-securityManager.realms = $zeppelinHubRealm
-```
-
-> Note: ZeppelinHub is not related to Apache Zeppelin project.
-
 ### Knox SSO
 [KnoxSSO](https://knox.apache.org/books/knox-0-13-0/dev-guide.html#KnoxSSO+Integration) provides an abstraction for integrating any number of authentication systems and SSO solutions and enables participating web applications to scale to those solutions more easily. Without the token exchange capabilities offered by KnoxSSO each component UI would need to integrate with each desired solution on its own.
+
+When Knox SSO is enabled for Zeppelin, the [Apache Hadoop Groups Mapping](https://hadoop.apache.org/docs/r2.8.0/hadoop-project-dist/hadoop-common/GroupsMapping.html) configuration will used internally to determine the group memberships of the user who is trying to log in. Role-based access permission can be set based on groups as seen by Hadoop.
 
 To enable this, apply the following change in `conf/shiro.ini` under `[main]` section.
 
@@ -249,7 +237,7 @@ authc = org.apache.zeppelin.realm.jwt.KnoxAuthenticationFilter
 ### HTTP SPNEGO Authentication
 HTTP SPNEGO (Simple and Protected GSS-API NEGOtiation) is the standard way to support Kerberos Ticket based user authentication for Web Services. Based on [Apache Hadoop Auth](https://hadoop.apache.org/docs/current/hadoop-auth/index.html), Zeppelin supports ability to authenticate users by accepting and validating their Kerberos Ticket.
 
-When HTTP SPNEGO Authentication is enabled for Zeppelin, the [Apache Hadoop Groups Mapping](https://hadoop.apache.org/docs/r2.8.0/hadoop-project-dist/hadoop-common/GroupsMapping.html) configuration will used internally to determine group membership of user who is trying to log in. Role-based access permission can be set based on groups as seen by Hadoop.
+When HTTP SPNEGO Authentication is enabled for Zeppelin, the [Apache Hadoop Groups Mapping](https://hadoop.apache.org/docs/r2.8.0/hadoop-project-dist/hadoop-common/GroupsMapping.html) configuration will used internally to determine the group memberships of the user who is trying to log in. Role-based access permission can be set based on groups as seen by Hadoop.
 
 To enable this, apply the following change in `conf/shiro.ini` under `[main]` section.
 
@@ -266,7 +254,9 @@ authc = org.apache.zeppelin.realm.kerberos.KerberosAuthenticationFilter
 ```
 For above configuration to work, user need to do some more configurations outside Zeppelin.
 
-1). A valid SPNEGO keytab should be available on the Zeppelin node and should be readable by 'zeppelin' user. If there is a SPNEGO keytab already available (because of other Hadoop service), it can be reused here and no need to generate a new keytab. An example of working SPNEGO keytab could be:
+1. A valid SPNEGO keytab should be available on the Zeppelin node and should be readable by 'zeppelin' user. If there is a SPNEGO keytab already available (because of another Hadoop service), it can be reused here without generating a new keytab.
+An example of working SPNEGO keytab could be:
+
 ```
 $ klist -kt /etc/security/keytabs/spnego.service.keytab
 Keytab name: FILE:/etc/security/keytabs/spnego.service.keytab
@@ -277,16 +267,19 @@ KVNO Timestamp           Principal
    2 11/26/2018 16:58:38 HTTP/zeppelin.fqdn.domain.com@EXAMPLE.COM
    2 11/26/2018 16:58:38 HTTP/zeppelin.fqdn.domain.com@EXAMPLE.COM
 ```
-and the keytab permission should be: (VERY IMPORTANT to not to set this to 777 or readable by all !!!):
+
+Ensure that the keytab premissions are sufficiently strict while still readable by the 'zeppelin' user:
+
 ```
 $ ls -l /etc/security/keytabs/spnego.service.keytab
 -r--r-----. 1 root hadoop 346 Nov 26 16:58 /etc/security/keytabs/spnego.service.keytab
 ```
-Above 'zeppelin' user happens to be member of 'hadoop' group.
 
-2). A secret signature file must be present on Zeppelin node (readable to 'zeppelin' user). This file contains the random binary numbers which is used to sign 'hadoop.auth' cookie, generated during SPNEGO exchange. If such a file is already generated and available on the Zeppelin node, it should be used rather than generating a new file.
+Note that for the above example, the 'zeppelin' user can read the keytab because they are a member of the 'hadoop' group.
 
+2. A secret signature file must be present on Zeppelin node, readable by 'zeppelin' user. This file contains the random binary numbers which is used to sign 'hadoop.auth' cookie, generated during SPNEGO exchange. If such a file is already generated and available on the Zeppelin node, it should be used rather than generating a new file.
 Commands to generate a secret signature file (if required):
+
 ```
 dd if=/dev/urandom of=/etc/security/http_secret bs=1024 count=1
 chown hdfs:hadoop /etc/security/http_secret

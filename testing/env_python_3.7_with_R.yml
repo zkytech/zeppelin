@@ -14,6 +14,7 @@ dependencies:
   - ipykernel
   - jupyter_client=5
   - hvplot
+  - holoviews=1.16
   - plotnine
   - seaborn
   - intake
@@ -22,8 +23,9 @@ dependencies:
   - altair
   - vega_datasets
   - plotly
+  - jinja2=3.0.3
   - pip
-  - r-base=3
+  - r-base=3.6
   - r-data.table
   - r-evaluate
   - r-base64enc

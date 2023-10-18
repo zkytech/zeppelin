@@ -33,14 +33,14 @@ For SparkR users, this script includes several helpful [R Libraries](#r-extras).
 
 ### Prerequisites
 
-This script requires three applications, [Ansible](http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-pip "Ansible"), [Vagrant](http://www.vagrantup.com "Vagrant") and [Virtual Box](https://www.virtualbox.org/ "Virtual Box").  All of these applications are freely available as Open Source projects and extremely easy to set up on most operating systems.
+This script requires three applications, [Ansible](https://www.ansible.com/ "Ansible"), [Vagrant](http://www.vagrantup.com "Vagrant") and [Virtual Box](https://www.virtualbox.org/ "Virtual Box").  All of these applications are freely available as Open Source projects and extremely easy to set up on most operating systems.
 
 ## Create a Zeppelin Ready VM
 
 If you are running Windows and don't yet have python installed, [install Python 2.7.x](https://www.python.org/downloads/release/python-2710/) first.
 
 1. Download and Install Vagrant:  [Vagrant Downloads](http://www.vagrantup.com/downloads.html)
-2. Install Ansible:  [Ansible Python pip install](http://docs.ansible.com/ansible/intro_installation.html#latest-releases-via-pip)
+2. Install Ansible:  [Ansible Python pip install](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html#pip-install)
 
     ```bash
     sudo easy_install pip
@@ -86,7 +86,6 @@ By default, Vagrant will share your project directory (the directory with the Va
 Running the following commands in the guest machine should display these expected versions:
 
 * `node --version` should report *v0.12.7*
-* `mvn --version` should report *Apache Maven 3.3.9* and *Java version: 1.7.0_85*
 
 The virtual machine consists of:
 
@@ -108,7 +107,7 @@ This assumes you've already cloned the project either on the host machine in the
 
 ```bash
 cd /zeppelin
-mvn clean package -Pspark-1.6 -Phadoop-2.4 -DskipTests
+./mvnw clean package -Pspark-1.6 -Phadoop-2.4 -DskipTests
 ./bin/zeppelin-daemon.sh start
 ```
 

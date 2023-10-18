@@ -22,14 +22,16 @@ package org.apache.zeppelin.flink.internal
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.util.AbstractID
-import java.io.{BufferedReader, File, FileOutputStream, IOException}
 
+import java.io.{BufferedReader, File, FileOutputStream, IOException}
 import org.apache.flink.streaming.api.environment.{StreamExecutionEnvironment => JStreamExecutionEnvironment}
 import org.apache.flink.api.java.{ExecutionEnvironment => JExecutionEnvironment}
 import org.apache.flink.api.scala.ExecutionEnvironment
 import org.apache.flink.core.execution.PipelineExecutorServiceLoader
 import org.apache.zeppelin.flink.{ApplicationModeExecutionEnvironment, ApplicationModeStreamEnvironment, FlinkScalaInterpreter}
 import FlinkShell.ExecutionMode
+import org.apache.commons.lang3.StringUtils
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.tools.nsc.interpreter._
 
@@ -45,53 +47,48 @@ class FlinkILoop(
                   flinkScalaInterpreter: FlinkScalaInterpreter)
   extends ILoop(in0, out0) {
 
+  private lazy val LOGGER: Logger = LoggerFactory.getLogger(getClass)
 
-  // remote environment
-  private val (remoteBenv: ScalaShellEnvironment,
-  remoteSenv: ScalaShellStreamEnvironment) = {
+  var remoteBenv: ScalaShellEnvironment = null
+  var remoteSenv: ScalaShellStreamEnvironment = null
+  var scalaBenv: ExecutionEnvironment = null
+  var scalaSenv: StreamExecutionEnvironment = null
+
+  def initEnvironments(): Unit = {
     ScalaShellEnvironment.resetContextEnvironments()
     ScalaShellStreamEnvironment.resetContextEnvironments()
     // create our environment that submits against the cluster (local or remote)
-    val remoteBenv = new ScalaShellEnvironment(
+    remoteBenv = new ScalaShellEnvironment(
       flinkConfig,
       this,
       this.getExternalJars(): _*)
-    val remoteSenv = new ScalaShellStreamEnvironment(
+    remoteSenv = new ScalaShellStreamEnvironment(
       flinkConfig,
       this,
       flinkScalaInterpreter.getFlinkVersion,
+      this.classLoader,
       getExternalJars(): _*)
 
-    (remoteBenv,remoteSenv)
-  }
-
-  // local environment
-  val (
-    scalaBenv: ExecutionEnvironment,
-    scalaSenv: StreamExecutionEnvironment
-    ) = {
     if (ExecutionMode.isApplicationMode(mode)) {
       // For yarn application mode, ExecutionEnvironment & StreamExecutionEnvironment has already been created
       // by flink itself, we here just try get them via reflection and reconstruct them.
-      val scalaBenv = new ExecutionEnvironment(new ApplicationModeExecutionEnvironment(
+      scalaBenv = new ExecutionEnvironment(new ApplicationModeExecutionEnvironment(
         getExecutionEnvironmentField(jenv, "executorServiceLoader").asInstanceOf[PipelineExecutorServiceLoader],
         getExecutionEnvironmentField(jenv, "configuration").asInstanceOf[Configuration],
         getExecutionEnvironmentField(jenv, "userClassloader").asInstanceOf[ClassLoader],
         this,
         flinkScalaInterpreter
       ))
-      val scalaSenv = new StreamExecutionEnvironment(new ApplicationModeStreamEnvironment(
+      scalaSenv = new StreamExecutionEnvironment(new ApplicationModeStreamEnvironment(
         getStreamExecutionEnvironmentField(jsenv, "executorServiceLoader").asInstanceOf[PipelineExecutorServiceLoader],
         getStreamExecutionEnvironmentField(jsenv, "configuration").asInstanceOf[Configuration],
         getStreamExecutionEnvironmentField(jsenv, "userClassloader").asInstanceOf[ClassLoader],
         this,
         flinkScalaInterpreter
       ))
-      (scalaBenv, scalaSenv)
     } else {
-      val scalaBenv = new ExecutionEnvironment(remoteBenv)
-      val scalaSenv = new StreamExecutionEnvironment(remoteSenv)
-      (scalaBenv, scalaSenv)
+      scalaBenv = new ExecutionEnvironment(remoteBenv)
+      scalaSenv = new StreamExecutionEnvironment(remoteSenv)
     }
   }
 
@@ -101,11 +98,16 @@ class FlinkILoop(
   private val tmpDirBase: File = {
     // get unique temporary folder:
     val abstractID: String = new AbstractID().toString
-    val tmpDir: File = new File(
-      System.getProperty("java.io.tmpdir"),
-      "scala_shell_tmp-" + abstractID)
+    var scalaShellTmpParentFolder = flinkScalaInterpreter.properties.getProperty("zeppelin.flink.scala.shell.tmp_dir")
+    if (StringUtils.isBlank(scalaShellTmpParentFolder)) {
+      scalaShellTmpParentFolder = System.getProperty("java.io.tmpdir")
+    }
+    val tmpDir: File = new File(scalaShellTmpParentFolder, "scala_shell_tmp-" + abstractID)
+    LOGGER.info("Folder for scala shell compiled jar: {}", tmpDir.getAbsolutePath)
     if (!tmpDir.exists) {
-      tmpDir.mkdir
+      if (!tmpDir.mkdirs()) {
+        throw new IOException(s"Unable to make tmp dir ${tmpDir.getAbsolutePath} for scala shell")
+      }
     }
     tmpDir
   }
@@ -175,28 +177,20 @@ class FlinkILoop(
       }
     }
     val vd = intp.virtualDirectory
-
     val vdIt = vd.iterator
-
     for (fi <- vdIt) {
       if (fi.isDirectory) {
-
         val fiIt = fi.iterator
-
         for (f <- fiIt) {
-
           // directory for compiled line
           val lineDir = new File(tmpDirShell.getAbsolutePath, fi.name)
           lineDir.mkdirs()
-
           // compiled classes for commands from shell
           val writeFile = new File(lineDir.getAbsolutePath, f.name)
           val outputStream = new FileOutputStream(writeFile)
           val inputStream = f.input
-
           // copy file contents
           org.apache.commons.io.IOUtils.copy(inputStream, outputStream)
-
           inputStream.close()
           outputStream.close()
         }
@@ -204,12 +198,9 @@ class FlinkILoop(
     }
 
     val compiledClasses = new File(tmpDirShell.getAbsolutePath)
-
     val jarFilePath = new File(tmpJarShell.getAbsolutePath)
-
     val jh: JarHelper = new JarHelper
     jh.jarDir(compiledClasses, jarFilePath)
-
     jarFilePath
   }
 

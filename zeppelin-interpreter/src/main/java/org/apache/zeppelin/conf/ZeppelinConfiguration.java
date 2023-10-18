@@ -23,11 +23,13 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -246,6 +248,20 @@ public class ZeppelinConfiguration {
       return sysConfig.getLong(propertyName);
     }
     return getLongValue(propertyName, defaultValue);
+  }
+
+  /**
+   * This method is to support time unit like `1s`, `2m`, `3h`.
+   *
+   * @param {ConfVars} c . Note：The type of default value of `ConfVars  c` should be long.
+   * @return {long} Milliseconds
+   */
+  public long getTime(ConfVars c) {
+    try {
+      return timeUnitToMill(getString(c.name(), c.getVarName(), ""));
+    } catch (Exception e) {
+      return getLong(c);
+    }
   }
 
   public float getFloat(ConfVars c) {
@@ -500,6 +516,10 @@ public class ZeppelinConfiguration {
     return getString(ConfVars.ZEPPELIN_NOTEBOOK_OSS_ACCESSKEYSECRET);
   }
 
+  public int getOSSNoteMaxVersionNum(){
+    return getInt(ConfVars.ZEPPELIN_NOTEBOOK_OSS_VERSION_MAX);
+  }
+
   public String getMongoUri() {
     return getString(ConfVars.ZEPPELIN_NOTEBOOK_MONGO_URI);
   }
@@ -606,6 +626,10 @@ public class ZeppelinConfiguration {
 
   public String[] getNoteFileExcludedFields() {
     return StringUtils.split(getString(ConfVars.ZEPPELIN_NOTE_FILE_EXCLUDE_FIELDS), (","));
+  }
+
+  public int getNoteCacheThreshold() {
+    return getInt(ConfVars.ZEPPELIN_NOTE_CACHE_THRESHOLD);
   }
 
   public String getInterpreterPortRange() {
@@ -751,6 +775,10 @@ public class ZeppelinConfiguration {
 
   public String getZeppelinNotebookCronFolders() {
     return getString(ConfVars.ZEPPELIN_NOTEBOOK_CRON_FOLDERS);
+  }
+
+  public boolean isZeppelinNotebookMarkdownEscapeHtml() {
+    return getBoolean(ConfVars.ZEPPELIN_NOTEBOOK_MARKDOWN_ESCAPE_HTML);
   }
 
   public Boolean isZeppelinNotebookCollaborativeModeEnable() {
@@ -928,7 +956,7 @@ public class ZeppelinConfiguration {
     ZEPPELIN_INTERPRETER_LOCALREPO("zeppelin.interpreter.localRepo", "local-repo"),
     ZEPPELIN_INTERPRETER_DEP_MVNREPO("zeppelin.interpreter.dep.mvnRepo",
         "https://repo1.maven.org/maven2/"),
-    ZEPPELIN_INTERPRETER_CONNECT_TIMEOUT("zeppelin.interpreter.connect.timeout", 60000),
+    ZEPPELIN_INTERPRETER_CONNECT_TIMEOUT("zeppelin.interpreter.connect.timeout", 600000L),
     ZEPPELIN_INTERPRETER_CONNECTION_POOL_SIZE("zeppelin.interpreter.connection.poolsize", 100),
     ZEPPELIN_INTERPRETER_GROUP_DEFAULT("zeppelin.interpreter.group.default", "spark"),
     ZEPPELIN_INTERPRETER_OUTPUT_LIMIT("zeppelin.interpreter.output.limit", 1024 * 100),
@@ -969,6 +997,7 @@ public class ZeppelinConfiguration {
     ZEPPELIN_NOTEBOOK_OSS_ENDPOINT("zeppelin.notebook.oss.endpoint", "http://oss-cn-hangzhou.aliyuncs.com"),
     ZEPPELIN_NOTEBOOK_OSS_ACCESSKEYID("zeppelin.notebook.oss.accesskeyid", null),
     ZEPPELIN_NOTEBOOK_OSS_ACCESSKEYSECRET("zeppelin.notebook.oss.accesskeysecret", null),
+    ZEPPELIN_NOTEBOOK_OSS_VERSION_MAX("zeppelin.notebook.oss.version.max", 30),
     ZEPPELIN_NOTEBOOK_AZURE_CONNECTION_STRING("zeppelin.notebook.azure.connectionString", null),
     ZEPPELIN_NOTEBOOK_AZURE_SHARE("zeppelin.notebook.azure.share", "zeppelin"),
     ZEPPELIN_NOTEBOOK_AZURE_USER("zeppelin.notebook.azure.user", "user"),
@@ -1057,10 +1086,15 @@ public class ZeppelinConfiguration {
     ZEPPELIN_K8S_SERVICE_NAME("zeppelin.k8s.service.name", "zeppelin-server"),
     ZEPPELIN_K8S_TIMEOUT_DURING_PENDING("zeppelin.k8s.timeout.during.pending", true),
 
+    // Used by K8s and Docker plugin
     ZEPPELIN_DOCKER_CONTAINER_IMAGE("zeppelin.docker.container.image", "apache/zeppelin:" + Util.getVersion()),
 
+    ZEPPELIN_DOCKER_CONTAINER_SPARK_HOME("zeppelin.docker.container.spark.home", "/spark"),
+    ZEPPELIN_DOCKER_UPLOAD_LOCAL_LIB_TO_CONTAINTER("zeppelin.docker.upload.local.lib.to.container", true),
+    ZEPPELIN_DOCKER_HOST("zeppelin.docker.host", "http://0.0.0.0:2375"),
+    ZEPPELIN_DOCKER_TIME_ZONE("zeppelin.docker.time.zone", TimeZone.getDefault().getID()),
+
     ZEPPELIN_METRIC_ENABLE_PROMETHEUS("zeppelin.metric.enable.prometheus", false),
-    ZEPPELINHUB_USER_KEY("zeppelinhub.user.key",""),
 
     ZEPPELIN_IMPERSONATE_SPARK_PROXY_USER("zeppelin.impersonate.spark.proxy.user", true),
     ZEPPELIN_NOTEBOOK_GIT_REMOTE_URL("zeppelin.notebook.git.remote.url", ""),
@@ -1069,8 +1103,11 @@ public class ZeppelinConfiguration {
     ZEPPELIN_NOTEBOOK_GIT_REMOTE_ORIGIN("zeppelin.notebook.git.remote.origin", "origin"),
     ZEPPELIN_NOTEBOOK_COLLABORATIVE_MODE_ENABLE("zeppelin.notebook.collaborative.mode.enable",
             true),
+    ZEPPELIN_NOTEBOOK_VERSIONED_MODE_ENABLE("zeppelin.notebook.versioned.mode.enable",
+            true),
     ZEPPELIN_NOTEBOOK_CRON_ENABLE("zeppelin.notebook.cron.enable", false),
     ZEPPELIN_NOTEBOOK_CRON_FOLDERS("zeppelin.notebook.cron.folders", null),
+    ZEPPELIN_NOTEBOOK_MARKDOWN_ESCAPE_HTML("zeppelin.notebook.markdown.escape.html", true),
     ZEPPELIN_PROXY_URL("zeppelin.proxy.url", null),
     ZEPPELIN_PROXY_USER("zeppelin.proxy.user", null),
     ZEPPELIN_PROXY_PASSWORD("zeppelin.proxy.password", null),
@@ -1081,6 +1118,7 @@ public class ZeppelinConfiguration {
     ZEPPELIN_JOBMANAGER_ENABLE("zeppelin.jobmanager.enable", false),
     ZEPPELIN_SPARK_ONLY_YARN_CLUSTER("zeppelin.spark.only_yarn_cluster", false),
     ZEPPELIN_SESSION_CHECK_INTERVAL("zeppelin.session.check_interval", 60 * 10 * 1000),
+    ZEPPELIN_NOTE_CACHE_THRESHOLD("zeppelin.note.cache.threshold", 50),
     ZEPPELIN_NOTE_FILE_EXCLUDE_FIELDS("zeppelin.note.file.exclude.fields", "");
 
     private String varName;
@@ -1170,4 +1208,14 @@ public class ZeppelinConfiguration {
       return booleanValue;
     }
   }
+
+  public static long timeUnitToMill(String timeStrWithUnit) {
+    // If `timeStrWithUnit` doesn't include time unit,
+    // `Duration.parse` would fail to parse and throw Exception.
+    if (timeStrWithUnit.endsWith("ms")) {
+      return Long.parseLong(timeStrWithUnit.substring(0, timeStrWithUnit.length() - 2));
+    }
+    return Duration.parse("PT" + timeStrWithUnit).toMillis();
+  }
+
 }

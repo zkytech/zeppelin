@@ -88,8 +88,6 @@ public class PySparkInterpreter extends PythonInterpreter {
       // must create spark interpreter after ClassLoader is set, otherwise the additional jars
       // can not be loaded by spark repl.
       this.sparkInterpreter = getInterpreterInTheSameSessionByClassName(SparkInterpreter.class);
-      setProperty("zeppelin.py4j.useAuth",
-          sparkInterpreter.getSparkVersion().isSecretSocketSupported() + "");
       // create Python Process and JVM gateway
       super.open();
     } finally {
@@ -192,6 +190,7 @@ public class PySparkInterpreter extends PythonInterpreter {
     return "python";
   }
 
+  @Override
   public ZeppelinContext getZeppelinContext() {
     if (sparkInterpreter != null) {
       return sparkInterpreter.getZeppelinContext();
@@ -233,11 +232,13 @@ public class PySparkInterpreter extends PythonInterpreter {
     }
   }
 
-  public boolean isSpark1() {
-    return sparkInterpreter.getSparkVersion().getMajorVersion() == 1;
-  }
-
+  // Used by PySpark
   public boolean isSpark3() {
     return sparkInterpreter.getSparkVersion().getMajorVersion() == 3;
+  }
+
+  // Used by PySpark
+  public boolean isAfterSpark33() {
+    return sparkInterpreter.getSparkVersion().newerThanEquals(SparkVersion.SPARK_3_3_0);
   }
 }

@@ -17,24 +17,24 @@
 
 package org.apache.zeppelin.livy;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
-
-import org.junit.Before;
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Properties;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 /**
  * Unit test for LivySQLInterpreter.
  */
-public class LivySQLInterpreterTest {
+class LivySQLInterpreterTest {
 
   private LivySparkSQLInterpreter sqlInterpreter;
 
-  @Before
+  @BeforeEach
   public void setUp() {
     Properties properties = new Properties();
     properties.setProperty("zeppelin.livy.url", "http://localhost:8998");
@@ -45,14 +45,14 @@ public class LivySQLInterpreterTest {
   }
 
   @Test
-  public void testHttpHeaders() {
+  void testHttpHeaders() {
     assertEquals(1, sqlInterpreter.getCustomHeaders().size());
     assertTrue(sqlInterpreter.getCustomHeaders().get("HEADER_1").startsWith("VALUE_1_"));
     assertNotEquals("VALUE_1_${HOME}", sqlInterpreter.getCustomHeaders().get("HEADER_1"));
   }
 
   @Test
-  public void testParseSQLOutput() {
+  void testParseSQLOutput() {
     // Empty sql output
     //    +---+---+
     //    |  a|  b|
@@ -173,7 +173,7 @@ public class LivySQLInterpreterTest {
   }
 
   @Test
-  public void parseSQLJsonOutput() {
+  void parseSQLJsonOutput() {
     //  Empty sql output
     //  id name
     List<String> rows = sqlInterpreter.parseSQLJsonOutput("\nid\tname\n");
@@ -190,8 +190,8 @@ public class LivySQLInterpreterTest {
         + "{\"id\":2,\"name\":\"2a\"}");
     assertEquals(3, rows.size());
     assertEquals("id\tname", rows.get(0));
-    assertEquals("1\t1a", rows.get(1));
-    assertEquals("2\t2a", rows.get(2));
+    assertEquals("1.0\t1a", rows.get(1));
+    assertEquals("2.0\t2a", rows.get(2));
 
 
     //  sql output with 3 rows and showing "only showing top 3 rows"
@@ -206,9 +206,9 @@ public class LivySQLInterpreterTest {
         + "{\"id\":3,\"name\":\"3a\"}");
     assertEquals(4, rows.size());
     assertEquals("id\tname", rows.get(0));
-    assertEquals("1\t1a", rows.get(1));
-    assertEquals("2\t2a", rows.get(2));
-    assertEquals("3\t3a", rows.get(3));
+    assertEquals("1.0\t1a", rows.get(1));
+    assertEquals("2.0\t2a", rows.get(2));
+    assertEquals("3.0\t3a", rows.get(3));
 
 
     //  sql output with 1 rows and showing "only showing top 1 rows"
@@ -221,7 +221,7 @@ public class LivySQLInterpreterTest {
         + "{\"id\":1}");
     assertEquals(2, rows.size());
     assertEquals("id", rows.get(0));
-    assertEquals("1", rows.get(1));
+    assertEquals("1.0", rows.get(1));
 
 
 
@@ -238,9 +238,9 @@ public class LivySQLInterpreterTest {
         + "{\"id\":3,\"name\":\"3a\",\"destination\":\"3b\"}");
     assertEquals(4, rows.size());
     assertEquals("id\tname\tdestination", rows.get(0));
-    assertEquals("1\t1a\t1b", rows.get(1));
-    assertEquals("2\t2\\na\t2b", rows.get(2));
-    assertEquals("3\t3a\t3b", rows.get(3));
+    assertEquals("1.0\t1a\t1b", rows.get(1));
+    assertEquals("2.0\t2\\na\t2b", rows.get(2));
+    assertEquals("3.0\t3a\t3b", rows.get(3));
 
 
     //  sql output with 3 rows and one containing a tab
@@ -255,9 +255,9 @@ public class LivySQLInterpreterTest {
         + "{\"id\":3,\"name\":\"3a\"}");
     assertEquals(4, rows.size());
     assertEquals("id\tname", rows.get(0));
-    assertEquals("1\t1a", rows.get(1));
-    assertEquals("2\t2\\ta", rows.get(2));
-    assertEquals("3\t3a", rows.get(3));
+    assertEquals("1.0\t1a", rows.get(1));
+    assertEquals("2.0\t2\\ta", rows.get(2));
+    assertEquals("3.0\t3a", rows.get(3));
 
     //  sql output with 3 rows and one containing a Japanese characters
     //  id name
@@ -271,8 +271,17 @@ public class LivySQLInterpreterTest {
         + "{\"id\":3,\"name\":\"3a\"}");
     assertEquals(4, rows.size());
     assertEquals("id\tname", rows.get(0));
-    assertEquals("1\t1a", rows.get(1));
-    assertEquals("2\tみんく", rows.get(2));
-    assertEquals("3\t3a", rows.get(3));
+    assertEquals("1.0\t1a", rows.get(1));
+    assertEquals("2.0\tみんく", rows.get(2));
+    assertEquals("3.0\t3a", rows.get(3));
+
+    // sql output with 1 rows contains json value
+    // id name
+    // {"id":{"oid":1},"name":"1a"}
+    rows = sqlInterpreter.parseSQLJsonOutput("\nid\tname\n" +
+            "{\"id\":{\"oid\":1},\"name\":\"1a\"}");
+    assertEquals(2, rows.size());
+    assertEquals("id\tname", rows.get(0));
+    assertEquals("{oid=1.0}\t1a", rows.get(1));
   }
 }

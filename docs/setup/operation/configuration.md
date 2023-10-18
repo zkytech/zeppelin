@@ -328,7 +328,7 @@ Sources descending by priority:
   <tr>
     <td><h6 class="properties">ZEPPELIN_INTERPRETER_DEP_MVNREPO</h6></td>
     <td><h6 class="properties">zeppelin.interpreter.dep.mvnRepo</h6></td>
-    <td>https://repo1.maven.org/maven2/</td>
+    <td>https://repo1.maven.org/maven2/,https://repo2.maven.org/maven2/</td>
     <td>Remote principal repository for interpreter's additional dependency loading</td>
   </tr>
   <tr>
@@ -340,8 +340,8 @@ Sources descending by priority:
   <tr>
     <td><h6 class="properties">ZEPPELIN_INTERPRETER_CONNECT_TIMEOUT</h6></td>
     <td><h6 class="properties">zeppelin.interpreter.connect.timeout</h6></td>
-    <td>30000</td>
-    <td>Output message from interpreter exceeding the limit will be truncated</td>
+    <td>600s</td>
+    <td>Interpreter process connect timeout. Default time unit is msec</td>
   </tr>
   <tr>
     <td><h6 class="properties">ZEPPELIN_DEP_LOCALREPO</h6></td>
@@ -463,6 +463,18 @@ Sources descending by priority:
     <td></td>
     <td>comma-separated list of folder, where cron is allowed</td>
   </tr>
+  <tr>
+    <td><h6 class="properties">ZEPPELIN_NOTE_CACHE_THRESHOLD</h6></td>
+    <td><h6 class="properties">zeppelin.note.cache.threshold</h6></td>
+    <td>50</td>
+    <td>Threshold for the number of notes in the cache before an eviction occurs.</td>
+  </tr>
+    <tr>
+      <td><h6 class="properties">ZEPPELIN_NOTEBOOK_VERSIONED_MODE_ENABLE</h6></td>
+      <td><h6 class="properties">zeppelin.notebook.versioned.mode.enable</h6></td>
+      <td>true</td>
+      <td>Value to enable/disable version control support in Notes.</td>
+    </tr>
 </table>
 
 

@@ -25,7 +25,7 @@
   <parent>
     <artifactId>zengine-plugins-parent</artifactId>
     <groupId>org.apache.zeppelin</groupId>
-    <version>0.10.1</version>
+    <version>0.11.0-SNAPSHOT</version>
     <relativePath>../../../zeppelin-plugins</relativePath>
   </parent>
 
@@ -48,7 +48,7 @@
     <dependency>
       <groupId>com.hubspot.jinjava</groupId>
       <artifactId>jinjava</artifactId>
-      <version>2.4.12</version>
+      <version>2.5.4</version>
     </dependency>
     <dependency>
       <groupId>com.spotify</groupId>
@@ -59,17 +59,7 @@
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-compress</artifactId>
-      <version>1.14</version>
-    </dependency>
-    <dependency>
-      <groupId>org.powermock</groupId>
-      <artifactId>powermock-api-mockito</artifactId>
-      <version>${powermock.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.powermock</groupId>
-      <artifactId>powermock-module-junit4</artifactId>
-      <version>${powermock.version}</version>
+      <version>${commons.compress.version}</version>
     </dependency>
   </dependencies>
 
@@ -78,16 +68,13 @@
       <testResource>
         <directory>${project.basedir}/src/test/resources</directory>
       </testResource>
-      <testResource>
-        <directory>${project.basedir}/src/main/resources</directory>
-      </testResource>
     </testResources>
     <plugins>
       <plugin>
         <artifactId>maven-enforcer-plugin</artifactId>
         <executions>
           <execution>
-            <id>enforce</id>
+            <id>enforce-dependency-convergence</id>
             <phase>none</phase>
           </execution>
         </executions>
@@ -98,9 +85,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <configuration>
-          <skip>false</skip>
-        </configuration>
       </plugin>
     </plugins>
     <resources>

@@ -23,7 +23,7 @@
   <parent>
     <artifactId>zeppelin</artifactId>
     <groupId>org.apache.zeppelin</groupId>
-    <version>0.10.1</version>
+    <version>0.11.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>zeppelin-server</artifactId>
@@ -38,11 +38,14 @@
     <javax.ws.rsapi.version>2.1</javax.ws.rsapi.version>
     <libpam4j.version>1.11</libpam4j.version>
     <jna.version>4.1.0</jna.version>
-    <jackson.version>2.9.10.6</jackson.version>
+    <jackson.version>2.12.6.1</jackson.version>
+    <nimbus.version>9.13</nimbus.version>
+    <kerberos.version>2.0.0-M15</kerberos.version>
 
     <!--test library versions-->
     <selenium.java.version>2.48.2</selenium.java.version>
     <xml.apis.version>1.4.01</xml.apis.version>
+    <hamcrest.version>2.2</hamcrest.version>
   </properties>
 
   <dependencies>
@@ -71,6 +74,10 @@
         <exclusion>
           <groupId>com.fasterxml.jackson.core</groupId>
           <artifactId>jackson-core</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.ow2.asm</groupId>
+          <artifactId>asm</artifactId>
         </exclusion>
         <!-- using jcl-over-slf4j instead -->
         <exclusion>
@@ -266,7 +273,7 @@
 
     <dependency>
       <groupId>org.eclipse.jetty.websocket</groupId>
-      <artifactId>websocket-server</artifactId>
+      <artifactId>javax-websocket-server-impl</artifactId>
       <version>${jetty.version}</version>
     </dependency>
 
@@ -278,7 +285,7 @@
     <dependency>
       <groupId>com.nimbusds</groupId>
       <artifactId>nimbus-jose-jwt</artifactId>
-      <version>4.41.2</version>
+      <version>${nimbus.version}</version>
     </dependency>
 
     <dependency>
@@ -288,16 +295,9 @@
     </dependency>
 
     <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-client</artifactId>
-    </dependency>
-
-    <!--test libraries-->
-    <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-common</artifactId>
-      <classifier>tests</classifier>
-      <scope>test</scope>
+      <groupId>org.apache.directory.server</groupId>
+      <artifactId>apacheds-kerberos-codec</artifactId>
+      <version>${kerberos.version}</version>
     </dependency>
 
     <dependency>
@@ -315,15 +315,29 @@
     </dependency>
 
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest</artifactId>
+      <version>${hamcrest.version}</version>
       <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.mockito</groupId>
-      <artifactId>mockito-all</artifactId>
+      <artifactId>mockito-core</artifactId>
       <scope>test</scope>
+      <exclusions>
+        <!-- used from zeppelin-zenigne -->
+        <exclusion>
+          <groupId>org.objenesis</groupId>
+          <artifactId>objenesis</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -369,33 +383,6 @@
       <version>${xml.apis.version}</version>
       <scope>test</scope>
     </dependency>
-
-      <dependency>
-        <groupId>org.powermock</groupId>
-        <artifactId>powermock-module-junit4</artifactId>
-        <scope>test</scope>
-        <exclusions>
-          <exclusion>
-            <groupId>org.javassist</groupId>
-            <artifactId>javassist</artifactId>
-          </exclusion>
-        </exclusions>
-      </dependency>
-      <dependency>
-        <groupId>org.powermock</groupId>
-        <artifactId>powermock-api-mockito</artifactId>
-        <scope>test</scope>
-        <exclusions>
-          <exclusion>
-            <groupId>org.hamcrest</groupId>
-            <artifactId>hamcrest-core</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>org.objenesis</groupId>
-            <artifactId>objenesis</artifactId>
-          </exclusion>
-        </exclusions>
-      </dependency>
 
       <dependency>
         <groupId>org.bitbucket.cowwoc</groupId>
@@ -479,17 +466,45 @@
         </zeppelin.daemon.package.base>
       </properties>
     </profile>
+
     <profile>
-      <id>hadoop3</id>
+      <id>hadoop2</id>
+
+      <properties>
+        <hadoop.version>${hadoop2.7.version}</hadoop.version>
+      </properties>
       <dependencies>
         <dependency>
-          <groupId>org.apache.directory.server</groupId>
-          <artifactId>kerberos-client</artifactId>
-          <version>${kerberos-client.version}</version>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-common</artifactId>
+          <version>${hadoop.version}</version>
           <scope>${hadoop.deps.scope}</scope>
         </dependency>
       </dependencies>
+
     </profile>
+    <profile>
+      <id>hadoop3</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <hadoop.version>${hadoop3.2.version}</hadoop.version>
+        <hadoop-client-api.artifact>hadoop-client-api</hadoop-client-api.artifact>
+        <hadoop-client-runtime.artifact>hadoop-client-runtime</hadoop-client-runtime.artifact>
+      </properties>
+
+      <dependencies>
+        <dependency>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>${hadoop-client-runtime.artifact}</artifactId>
+          <version>${hadoop.version}</version>
+          <scope>${hadoop.deps.scope}</scope>
+        </dependency>
+      </dependencies>
+
+    </profile>
+
   </profiles>
 
 </project>

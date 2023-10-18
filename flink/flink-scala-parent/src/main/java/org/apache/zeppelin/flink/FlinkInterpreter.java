@@ -22,11 +22,7 @@ import org.apache.flink.api.scala.ExecutionEnvironment;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment;
 import org.apache.flink.table.api.TableEnvironment;
-import org.apache.zeppelin.interpreter.Interpreter;
-import org.apache.zeppelin.interpreter.InterpreterContext;
-import org.apache.zeppelin.interpreter.InterpreterException;
-import org.apache.zeppelin.interpreter.InterpreterResult;
-import org.apache.zeppelin.interpreter.ZeppelinContext;
+import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +53,7 @@ public class FlinkInterpreter extends Interpreter {
 
   private String extractScalaVersion() throws InterpreterException {
     String scalaVersionString = scala.util.Properties.versionString();
-    LOGGER.info("Using Scala: " + scalaVersionString);
+    LOGGER.info("Using Scala: {}", scalaVersionString);
     if (scalaVersionString.contains("version 2.11")) {
       return "2.11";
     } else if (scalaVersionString.contains("version 2.12")) {
@@ -91,10 +87,10 @@ public class FlinkInterpreter extends Interpreter {
     String scalaVersion = extractScalaVersion();
     ClassLoader flinkScalaClassLoader = FlinkScalaInterpreter.class.getClassLoader();
     String innerIntpClassName = innerInterpreterClassMap.get(scalaVersion);
-    Class clazz = Class.forName(innerIntpClassName);
+    Class<?> clazz = Class.forName(innerIntpClassName);
 
     return (FlinkScalaInterpreter)
-            clazz.getConstructor(Properties.class, URLClassLoader.class)
+            clazz.getConstructor(Properties.class, ClassLoader.class)
                     .newInstance(getProperties(), flinkScalaClassLoader);
   }
 
@@ -108,7 +104,7 @@ public class FlinkInterpreter extends Interpreter {
   @Override
   public InterpreterResult interpret(String st, InterpreterContext context)
       throws InterpreterException {
-    LOGGER.debug("Interpret code: " + st);
+    LOGGER.debug("Interpret code: {}", st);
     this.z.setInterpreterContext(context);
     this.z.setGui(context.getGui());
     this.z.setNoteGui(context.getNoteGui());
@@ -159,15 +155,15 @@ public class FlinkInterpreter extends Interpreter {
   }
 
   TableEnvironment getStreamTableEnvironment() {
-    return this.innerIntp.getStreamTableEnvironment("blink");
+    return this.innerIntp.getStreamTableEnvironment();
   }
 
   org.apache.flink.table.api.TableEnvironment getJavaBatchTableEnvironment(String planner) {
     return this.innerIntp.getJavaBatchTableEnvironment(planner);
   }
 
-  TableEnvironment getJavaStreamTableEnvironment(String planner) {
-    return this.innerIntp.getJavaStreamTableEnvironment(planner);
+  TableEnvironment getJavaStreamTableEnvironment() {
+    return this.innerIntp.getJavaStreamTableEnvironment();
   }
 
   TableEnvironment getBatchTableEnvironment() {

@@ -382,6 +382,27 @@ public class ZeppelinClient {
             .get("/notebook/{noteId}")
             .routeParam("noteId", noteId)
             .asJson();
+    return extractNoteResultFromResponse(response);
+  }
+
+  /**
+   * Query {@link NoteResult} with provided notePath.
+   *
+   * @param notePath
+   * @return
+   * @throws Exception
+   */
+  public NoteResult queryNoteResultByPath(String notePath) throws Exception {
+    JSONObject bodyObject = new JSONObject();
+    bodyObject.put("notePath", notePath);
+    HttpResponse<JsonNode> response = Unirest
+            .post("/notebook/getByPath")
+            .body(bodyObject)
+            .asJson();
+    return extractNoteResultFromResponse(response);
+  }
+
+  private NoteResult extractNoteResultFromResponse(HttpResponse<JsonNode> response) throws Exception {
     checkResponse(response);
     JsonNode jsonNode = response.getBody();
     checkJsonNodeStatus(jsonNode);
@@ -393,6 +414,10 @@ public class ZeppelinClient {
       if (infoJsonObject.has("isRunning")) {
         isRunning = Boolean.parseBoolean(infoJsonObject.getString("isRunning"));
       }
+    }
+    String noteId = null;
+    if (noteJsonObject.has("id")) {
+      noteId = noteJsonObject.getString("id");
     }
 
     String notePath = null;
@@ -477,6 +502,21 @@ public class ZeppelinClient {
     return queryNoteResult(noteId);
   }
 
+  /**
+   * Cancel a running note.
+   *
+   * @param noteId
+   * @throws Exception
+   */
+  public void cancelNote(String noteId) throws Exception {
+    HttpResponse<JsonNode> response = Unirest
+            .delete("/notebook/job/{noteId}")
+            .routeParam("noteId", noteId)
+            .asJson();
+    checkResponse(response);
+    JsonNode jsonNode = response.getBody();
+    checkJsonNodeStatus(jsonNode);
+  }
 
   /**
    * Import note with given note json content to the specified notePath.

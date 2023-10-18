@@ -59,11 +59,21 @@ public class ScalaShellStreamEnvironment extends StreamExecutionEnvironment {
           final Configuration configuration,
           final FlinkILoop flinkILoop,
           final FlinkVersion flinkVersion,
+          final ClassLoader classLoader,
           final String... jarFiles) {
     super(configuration);
     this.flinkILoop = checkNotNull(flinkILoop);
     this.flinkVersion = checkNotNull(flinkVersion);
     this.jarFiles = checkNotNull(JarUtils.getJarFiles(jarFiles));
+    if (flinkVersion.newerThanOrEqual(FlinkVersion.fromVersionString("1.16"))) {
+      try {
+        Field field = StreamExecutionEnvironment.class.getDeclaredField("userClassloader");
+        field.setAccessible(true);
+        field.set(this, classLoader);
+      } catch (NoSuchFieldException | IllegalAccessException e) {
+        throw new RuntimeException("Unable to set userClassLoader", e);
+      }
+    }
   }
 
   @Override
@@ -79,21 +89,16 @@ public class ScalaShellStreamEnvironment extends StreamExecutionEnvironment {
   }
 
   public Object getFlinkConfiguration() {
-    if (flinkVersion.isAfterFlink114()) {
-      // starting from Flink 1.14, getConfiguration() return the readonly copy of internal
-      // configuration, so we need to get the internal configuration object via reflection.
-      try {
-        Field configurationField = StreamExecutionEnvironment.class.getDeclaredField("configuration");
-        configurationField.setAccessible(true);
-        return configurationField.get(this);
-      } catch (Exception e) {
-        throw new RuntimeException("Fail to get configuration from StreamExecutionEnvironment", e);
-      }
-    } else {
-      return super.getConfiguration();
+    // starting from Flink 1.14, getConfiguration() return the readonly copy of internal
+    // configuration, so we need to get the internal configuration object via reflection.
+    try {
+      Field configurationField = StreamExecutionEnvironment.class.getDeclaredField("configuration");
+      configurationField.setAccessible(true);
+      return configurationField.get(this);
+    } catch (Exception e) {
+      throw new RuntimeException("Fail to get configuration from StreamExecutionEnvironment", e);
     }
   }
-
 
   private List<URL> getUpdatedJarFiles() throws MalformedURLException {
     final URL jarUrl = flinkILoop.writeFilesToDisk().getAbsoluteFile().toURI().toURL();

@@ -25,23 +25,21 @@ import org.apache.zeppelin.interpreter.InterpreterSetting;
 import org.apache.zeppelin.interpreter.remote.RemoteInterpreter;
 import org.apache.zeppelin.interpreter.remote.RemoteInterpreterProcessListener;
 import org.apache.zeppelin.interpreter.thrift.ParagraphInfo;
-import org.apache.zeppelin.notebook.Note;
-import org.apache.zeppelin.notebook.NoteInfo;
 import org.apache.zeppelin.resource.LocalResourcePool;
 import org.apache.zeppelin.scheduler.Job.Status;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.apache.zeppelin.user.AuthenticationInfo;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RemoteSchedulerTest extends AbstractInterpreterTest
     implements RemoteInterpreterProcessListener {
@@ -50,27 +48,26 @@ public class RemoteSchedulerTest extends AbstractInterpreterTest
   private SchedulerFactory schedulerSvc;
   private static final int TICK_WAIT = 100;
   private static final int MAX_WAIT_CYCLES = 100;
+  private String note1Id;
 
   @Override
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     super.setUp();
-    Note note1 = new Note(new NoteInfo("note1", "/note_1"));
-    when(mockNotebook.getNote("note1")).thenReturn(note1);
-
+    note1Id = notebook.createNote("/note_1", AuthenticationInfo.ANONYMOUS);
     schedulerSvc = SchedulerFactory.singleton();
     interpreterSetting = interpreterSettingManager.getInterpreterSettingByName("test");
   }
 
   @Override
-  @After
+  @AfterEach
   public void tearDown() {
     interpreterSetting.close();
   }
 
   @Test
   public void test() throws Exception {
-    final RemoteInterpreter intpA = (RemoteInterpreter) interpreterSetting.getInterpreter("user1", "note1", "mock");
+    final RemoteInterpreter intpA = (RemoteInterpreter) interpreterSetting.getInterpreter("user1", note1Id, "mock");
 
     intpA.open();
 
@@ -140,7 +137,7 @@ public class RemoteSchedulerTest extends AbstractInterpreterTest
 
   @Test
   public void testAbortOnPending() throws Exception {
-    final RemoteInterpreter intpA = (RemoteInterpreter) interpreterSetting.getInterpreter("user1", "note1", "mock");
+    final RemoteInterpreter intpA = (RemoteInterpreter) interpreterSetting.getInterpreter("user1", note1Id, "mock");
     intpA.open();
 
     Scheduler scheduler = intpA.getScheduler();
@@ -263,6 +260,7 @@ public class RemoteSchedulerTest extends AbstractInterpreterTest
 
     assertNotNull(job1.getDateFinished());
     assertTrue(job1.isTerminated());
+    assertEquals("1000", job1.getReturn());
     assertNull(job2.getDateFinished());
     assertTrue(job2.isTerminated());
     assertEquals("result2", job2.getReturn());
