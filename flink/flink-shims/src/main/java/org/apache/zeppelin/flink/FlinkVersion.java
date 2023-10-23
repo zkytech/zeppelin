@@ -83,7 +83,4 @@ public class FlinkVersion {
     return newerThanOrEqual(FlinkVersion.fromVersionString("1.14.0"));
   }
 
-  public boolean isAfterFlink114() {
-    return newerThanOrEqual(FlinkVersion.fromVersionString("1.14.0"));
-  }
 }
