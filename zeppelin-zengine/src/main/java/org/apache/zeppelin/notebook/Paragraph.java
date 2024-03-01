@@ -110,9 +110,11 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
   static {
     // 创建日志文件输出的 Appender
     DailyRollingFileAppender fileAppender = new DailyRollingFileAppender();
-    fileAppender.setFile("behavior.json");
+    // 获取环境变量 ZEPPELIN_LOG_DIR
+    String logDir = System.getenv("ZEPPELIN_LOG_DIR");
+    fileAppender.setFile(String.format("%s/behavior.json", logDir));
     fileAppender.setDatePattern(".yyyy-MM-dd");
-    fileAppender.setLayout(new PatternLayout("%m"));
+    fileAppender.setLayout(new PatternLayout("%m%n"));
     fileAppender.activateOptions();
     // 设置 Logger 输出级别
     BEHAVIOR_LOGGER.setLevel(Level.INFO);
