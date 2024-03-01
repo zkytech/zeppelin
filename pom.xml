@@ -57,13 +57,13 @@
     <module>zeppelin-interpreter</module>
     <module>zeppelin-interpreter-shaded</module>
     <module>zeppelin-zengine</module>
-    <module>rlang</module>
+<!--    <module>rlang</module>-->
     <module>zeppelin-jupyter-interpreter</module>
     <module>zeppelin-jupyter-interpreter-shaded</module>
-    <module>groovy</module>
+<!--    <module>groovy</module>-->
     <module>spark</module>
     <module>spark-submit</module>
-    <module>submarine</module>
+<!--    <module>submarine</module>-->
     <module>markdown</module>
     <module>mongodb</module>
     <module>angular</module>
@@ -72,17 +72,17 @@
     <module>hbase</module>
     <module>jdbc</module>
     <module>file</module>
-    <module>flink</module>
-    <module>flink-cmd</module>
-    <module>influxdb</module>
+<!--    <module>flink</module>-->
+<!--    <module>flink-cmd</module>-->
+<!--    <module>influxdb</module>-->
     <module>python</module>
-    <module>cassandra</module>
+<!--    <module>cassandra</module>-->
     <module>elasticsearch</module>
-    <module>bigquery</module>
-    <module>alluxio</module>
-    <module>neo4j</module>
+<!--    <module>bigquery</module>-->
+<!--    <module>alluxio</module>-->
+<!--    <module>neo4j</module>-->
     <module>java</module>
-    <module>sparql</module>
+<!--    <module>sparql</module>-->
     <module>zeppelin-common</module>
     <module>zeppelin-client</module>
     <module>zeppelin-client-examples</module>

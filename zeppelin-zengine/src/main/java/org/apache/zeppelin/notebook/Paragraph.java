@@ -29,8 +29,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.gson.JsonObject;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.apache.log4j.DailyRollingFileAppender;
+import org.apache.log4j.FileAppender;
+import org.apache.log4j.Level;
+import org.apache.log4j.PatternLayout;
 import org.apache.zeppelin.common.JsonSerializable;
 import org.apache.zeppelin.display.AngularObject;
 import org.apache.zeppelin.display.AngularObjectRegistry;
@@ -70,6 +75,7 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
 
   private static final Logger LOGGER = LoggerFactory.getLogger(Paragraph.class);
 
+
   private String title;
   // text is composed of intpText and scriptText.
   private String text;
@@ -97,7 +103,21 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
 
   private Map<String, ParagraphRuntimeInfo> runtimeInfos = new HashMap<>();
   private transient List<InterpreterResultMessage> outputBuffer = new ArrayList<>();
+  // BEHAVIOR_LOGGER 写入的是一个json文件，禁止自动加入时间等信息
+  private static final org.apache.log4j.Logger BEHAVIOR_LOGGER = org.apache.log4j.Logger.getLogger("behavior");
 
+
+  static {
+    // 创建日志文件输出的 Appender
+    DailyRollingFileAppender fileAppender = new DailyRollingFileAppender();
+    fileAppender.setFile("behavior.json");
+    fileAppender.setDatePattern(".yyyy-MM-dd");
+    fileAppender.setLayout(new PatternLayout("%m"));
+    fileAppender.activateOptions();
+    // 设置 Logger 输出级别
+    BEHAVIOR_LOGGER.setLevel(Level.INFO);
+    BEHAVIOR_LOGGER.addAppender(fileAppender);
+  }
 
   @VisibleForTesting
   Paragraph() {
@@ -401,8 +421,28 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
         LOGGER.error("Can not find interpreter name {}", intpText);
         throw new RuntimeException("Can not find interpreter for " + intpText);
       }
-      LOGGER.info("Run paragraph [paragraph_id: {}, interpreter: {}, note_id: {}, user: {}]",
-              getId(), this.interpreter.getClassName(), note.getId(), subject.getUser());
+
+      // 自定义审计日志
+      LOGGER.info("Run paragraph [title: {}, paragraph_id: {}, interpreter_class: {}, interpreter_name:{} , note_id: {}, note_name: {} , user: {}]\n\n{}\n\n",
+          getTitle(), getId(), this.interpreter.getClassName(), intpText, note.getId(), note.getName(), subject.getUser(), getText());
+
+      // 生成一个json文本，包含了当前paragraph的title、paragraph_id、interpreter、note_id、note_name、user信息
+      JsonObject behaviorJson = new JsonObject();
+        behaviorJson.addProperty("title", getTitle());
+        behaviorJson.addProperty("paragraph_id", getId());
+        behaviorJson.addProperty("interpreter_class", this.interpreter.getClassName());
+        // 解释器名称, 例如 mysql-customname
+        behaviorJson.addProperty("interpreter_name", intpText);
+        behaviorJson.addProperty("note_id", note.getId());
+        behaviorJson.addProperty("note_name", note.getName());
+        behaviorJson.addProperty("user", subject.getUser());
+        behaviorJson.addProperty("text", getText());
+        // 当亲时间字符串
+        behaviorJson.addProperty("exec_time", new Date().toString());
+
+      String jsonStr = behaviorJson.toString();
+      BEHAVIOR_LOGGER.info(jsonStr);
+
       InterpreterSetting interpreterSetting = ((ManagedInterpreterGroup)
               interpreter.getInterpreterGroup()).getInterpreterSetting();
       if (interpreterSetting.getStatus() != InterpreterSetting.Status.READY) {
