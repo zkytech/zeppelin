@@ -77,7 +77,7 @@
 <!--    <module>influxdb</module>-->
     <module>python</module>
 <!--    <module>cassandra</module>-->
-    <module>elasticsearch</module>
+<!--    <module>elasticsearch</module>-->
 <!--    <module>bigquery</module>-->
 <!--    <module>alluxio</module>-->
 <!--    <module>neo4j</module>-->
